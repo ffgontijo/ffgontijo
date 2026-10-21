@@ -1,0 +1,5 @@
+**/bin/
+**/obj/
+.test-build/
+**/__pycache__/
+backups/

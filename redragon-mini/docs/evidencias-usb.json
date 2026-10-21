@@ -1,0 +1,353 @@
+[
+  {
+    "capture": "Redragon_Profile.pcap",
+    "sha256": "077381a7302e54443e75eecc2595b33f740496c0402903060fe89898bb4e05a6",
+    "packet_count": 54282,
+    "report_count": 374,
+    "replies": 374,
+    "request_opcode_counts": {
+      "1": 3,
+      "3": 73,
+      "18": 7,
+      "2": 2,
+      "4": 32,
+      "8": 228,
+      "14": 3,
+      "7": 24,
+      "15": 2
+    },
+    "invalid_request_checksums": [],
+    "invalid_reply_checksums": [],
+    "selected_transactions": [
+      {
+        "packet": 10565,
+        "time_s": 26.750116,
+        "device": 12,
+        "opcode": 7,
+        "address": 384,
+        "data": "02 80 01 00 40 01 00 91",
+        "report": "08 07 00 01 80 08 02 80 01 00 40 01 00 91 00 00 68",
+        "exact_ack_packet": 10567,
+        "ack_latency_ms": 80.24
+      },
+      {
+        "packet": 11707,
+        "time_s": 31.759118,
+        "device": 12,
+        "opcode": 7,
+        "address": 384,
+        "data": "04 80 01 00 81 19 00 41 19 00",
+        "report": "08 07 00 01 80 0a 04 80 01 00 81 19 00 41 19 00 42",
+        "exact_ack_packet": 11709,
+        "ack_latency_ms": 79.247
+      },
+      {
+        "packet": 11713,
+        "time_s": 31.846121,
+        "device": 12,
+        "opcode": 7,
+        "address": 394,
+        "data": "40 01 00 9b",
+        "report": "08 07 00 01 8a 04 40 01 00 9b 00 00 00 00 00 00 db",
+        "exact_ack_packet": 11715,
+        "ack_latency_ms": 79.168
+      },
+      {
+        "packet": 14359,
+        "time_s": 38.384117,
+        "device": 12,
+        "opcode": 15,
+        "address": 0,
+        "data": "00",
+        "report": "08 0f 00 00 00 01 00 00 00 00 00 00 00 00 00 00 3d",
+        "exact_ack_packet": 14364,
+        "ack_latency_ms": 80.306
+      },
+      {
+        "packet": 24397,
+        "time_s": 59.993115,
+        "device": 12,
+        "opcode": 15,
+        "address": 0,
+        "data": "01",
+        "report": "08 0f 00 00 00 01 01 00 00 00 00 00 00 00 00 00 3c",
+        "exact_ack_packet": 24399,
+        "ack_latency_ms": 81.259
+      },
+      {
+        "packet": 29743,
+        "time_s": 72.919131,
+        "device": 12,
+        "opcode": 7,
+        "address": 352,
+        "data": "00 ff",
+        "report": "08 07 00 01 60 02 00 ff 00 00 00 00 00 00 00 00 e4",
+        "exact_ack_packet": 29745,
+        "ack_latency_ms": 80.168
+      },
+      {
+        "packet": 29753,
+        "time_s": 73.008115,
+        "device": 12,
+        "opcode": 7,
+        "address": 384,
+        "data": "00 ff",
+        "report": "08 07 00 01 80 02 00 ff 00 00 00 00 00 00 00 00 c4",
+        "exact_ack_packet": 29757,
+        "ack_latency_ms": 79.275
+      },
+      {
+        "packet": 29765,
+        "time_s": 73.096116,
+        "device": 12,
+        "opcode": 7,
+        "address": 416,
+        "data": "00 ff",
+        "report": "08 07 00 01 a0 02 00 ff 00 00 00 00 00 00 00 00 a4",
+        "exact_ack_packet": 29769,
+        "ack_latency_ms": 79.313
+      },
+      {
+        "packet": 29783,
+        "time_s": 73.18412,
+        "device": 12,
+        "opcode": 7,
+        "address": 544,
+        "data": "00 ff",
+        "report": "08 07 00 02 20 02 00 ff 00 00 00 00 00 00 00 00 23",
+        "exact_ack_packet": 29787,
+        "ack_latency_ms": 79.314
+      },
+      {
+        "packet": 29801,
+        "time_s": 73.272113,
+        "device": 12,
+        "opcode": 7,
+        "address": 576,
+        "data": "00 ff",
+        "report": "08 07 00 02 40 02 00 ff 00 00 00 00 00 00 00 00 03",
+        "exact_ack_packet": 29805,
+        "ack_latency_ms": 79.206
+      },
+      {
+        "packet": 29815,
+        "time_s": 73.359115,
+        "device": 12,
+        "opcode": 7,
+        "address": 352,
+        "data": "04 80 01 00 81 06 00 41 06 00",
+        "report": "08 07 00 01 60 0a 04 80 01 00 81 06 00 41 06 00 88",
+        "exact_ack_packet": 29819,
+        "ack_latency_ms": 79.198
+      },
+      {
+        "packet": 29823,
+        "time_s": 73.446112,
+        "device": 12,
+        "opcode": 7,
+        "address": 362,
+        "data": "40 01 00 c1",
+        "report": "08 07 00 01 6a 04 40 01 00 c1 00 00 00 00 00 00 d5",
+        "exact_ack_packet": 29825,
+        "ack_latency_ms": 79.276
+      },
+      {
+        "packet": 29831,
+        "time_s": 73.534117,
+        "device": 12,
+        "opcode": 7,
+        "address": 384,
+        "data": "04 80 01 00 81 19 00 41 19 00",
+        "report": "08 07 00 01 80 0a 04 80 01 00 81 19 00 41 19 00 42",
+        "exact_ack_packet": 29833,
+        "ack_latency_ms": 80.214
+      },
+      {
+        "packet": 29843,
+        "time_s": 73.622114,
+        "device": 12,
+        "opcode": 7,
+        "address": 394,
+        "data": "40 01 00 9b",
+        "report": "08 07 00 01 8a 04 40 01 00 9b 00 00 00 00 00 00 db",
+        "exact_ack_packet": 29850,
+        "ack_latency_ms": 79.283
+      },
+      {
+        "packet": 29862,
+        "time_s": 73.710118,
+        "device": 12,
+        "opcode": 7,
+        "address": 416,
+        "data": "02 82 cd 00 42 cd 00 f5",
+        "report": "08 07 00 01 a0 08 02 82 cd 00 42 cd 00 f5 00 00 48",
+        "exact_ack_packet": 29868,
+        "ack_latency_ms": 79.188
+      },
+      {
+        "packet": 29876,
+        "time_s": 73.797114,
+        "device": 12,
+        "opcode": 7,
+        "address": 544,
+        "data": "02 82 b5 00 42 b5 00 25",
+        "report": "08 07 00 02 20 08 02 82 b5 00 42 b5 00 25 00 00 c7",
+        "exact_ack_packet": 29878,
+        "ack_latency_ms": 79.277
+      },
+      {
+        "packet": 29894,
+        "time_s": 73.887113,
+        "device": 12,
+        "opcode": 7,
+        "address": 576,
+        "data": "02 82 b6 00 42 b6 00 23",
+        "report": "08 07 00 02 40 08 02 82 b6 00 42 b6 00 23 00 00 a7",
+        "exact_ack_packet": 29905,
+        "ack_latency_ms": 79.166
+      },
+      {
+        "packet": 32797,
+        "time_s": 83.062117,
+        "device": 12,
+        "opcode": 7,
+        "address": 12,
+        "data": "18 18 00 25",
+        "report": "08 07 00 00 0c 04 18 18 00 25 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 32799,
+        "ack_latency_ms": 80.23
+      },
+      {
+        "packet": 33765,
+        "time_s": 87.320117,
+        "device": 12,
+        "opcode": 7,
+        "address": 12,
+        "data": "17 17 00 27",
+        "report": "08 07 00 00 0c 04 17 17 00 27 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 33767,
+        "ack_latency_ms": 80.288
+      },
+      {
+        "packet": 33787,
+        "time_s": 87.634118,
+        "device": 12,
+        "opcode": 7,
+        "address": 12,
+        "data": "16 16 00 29",
+        "report": "08 07 00 00 0c 04 16 16 00 29 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 33789,
+        "ack_latency_ms": 80.285
+      },
+      {
+        "packet": 33808,
+        "time_s": 87.949115,
+        "device": 12,
+        "opcode": 7,
+        "address": 12,
+        "data": "15 15 00 2b",
+        "report": "08 07 00 00 0c 04 15 15 00 2b 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 33817,
+        "ack_latency_ms": 80.276
+      },
+      {
+        "packet": 33827,
+        "time_s": 88.154119,
+        "device": 12,
+        "opcode": 7,
+        "address": 12,
+        "data": "14 14 00 2d",
+        "report": "08 07 00 00 0c 04 14 14 00 2d 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 33831,
+        "ack_latency_ms": 80.285
+      },
+      {
+        "packet": 34794,
+        "time_s": 89.884111,
+        "device": 12,
+        "opcode": 7,
+        "address": 0,
+        "data": "02 53",
+        "report": "08 07 00 00 00 02 02 53 00 00 00 00 00 00 00 00 ef",
+        "exact_ack_packet": 34796,
+        "ack_latency_ms": 84.288
+      },
+      {
+        "packet": 34955,
+        "time_s": 90.407119,
+        "device": 12,
+        "opcode": 7,
+        "address": 0,
+        "data": "01 54",
+        "report": "08 07 00 00 00 02 01 54 00 00 00 00 00 00 00 00 ef",
+        "exact_ack_packet": 34957,
+        "ack_latency_ms": 85.218
+      },
+      {
+        "packet": 45067,
+        "time_s": 132.38413,
+        "device": 12,
+        "opcode": 7,
+        "address": 544,
+        "data": "02 82 cd 00 42 cd 00 f5",
+        "report": "08 07 00 02 20 08 02 82 cd 00 42 cd 00 f5 00 00 c7",
+        "exact_ack_packet": 45069,
+        "ack_latency_ms": 79.233
+      },
+      {
+        "packet": 45256,
+        "time_s": 134.105116,
+        "device": 12,
+        "opcode": 7,
+        "address": 544,
+        "data": "02 82 b5 00 42 b5 00 25",
+        "report": "08 07 00 02 20 08 02 82 b5 00 42 b5 00 25 00 00 c7",
+        "exact_ack_packet": 45258,
+        "ack_latency_ms": 79.318
+      }
+    ]
+  },
+  {
+    "capture": "Redragon_DPI.pcap",
+    "sha256": "ed7294569f0d047dd48f8b9fa8ab5b5e8d4e3accddf57f5514a457f682a39d02",
+    "packet_count": 32750,
+    "report_count": 145,
+    "replies": 138,
+    "request_opcode_counts": {
+      "1": 6,
+      "3": 36,
+      "18": 5,
+      "4": 17,
+      "2": 1,
+      "8": 76,
+      "14": 2,
+      "7": 2
+    },
+    "invalid_request_checksums": [],
+    "invalid_reply_checksums": [],
+    "selected_transactions": [
+      {
+        "packet": 20263,
+        "time_s": 51.215378,
+        "device": 7,
+        "opcode": 7,
+        "address": 12,
+        "data": "19 19 00 23",
+        "report": "08 07 00 00 0c 04 19 19 00 23 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 20265,
+        "ack_latency_ms": 81.1
+      },
+      {
+        "packet": 27851,
+        "time_s": 64.665382,
+        "device": 7,
+        "opcode": 7,
+        "address": 12,
+        "data": "14 14 00 2d",
+        "report": "08 07 00 00 0c 04 14 14 00 2d 00 00 00 00 00 00 e1",
+        "exact_ack_packet": 27853,
+        "ack_latency_ms": 80.117
+      }
+    ]
+  }
+]
