@@ -157,13 +157,14 @@ def click_button(current: int) -> None:
 
 
 def describe() -> None:
-    say("\nREDRAGON MINI PYTHON 0.2 - configuracao unica no Windows")
+    say("\nREDRAGON MINI PYTHON 0.3 - configuracao unica no Windows")
     say("                 macOS                Windows")
     say("Botao 4:         Command+V            Ctrl+V")
     say("Botao 5:         Command+C            Ctrl+C")
     say("Botao 6:         Command+1            Print Screen")
     say("Botao 7:         alternar as duas configuracoes no proprio mouse")
-    say("DPI:             2000 em todas as etapas habilitadas; cores preservadas.")
+    say("DPI:             2000 em todas as etapas habilitadas; cores preservadas nesta opcao.")
+    say("Para adicionar rosa/macOS e vermelho/Windows aos perfis que ja funcionam, use a opcao 5.")
     say("\nA funcao interna sera testada antes da gravacao final. Se nao funcionar, o programa restaura e para.")
     say("Se o firmware percorrer quatro bancos, os dados serao organizados como Mac/Windows/Mac/Windows na ordem medida.")
     say("Nenhum servico ou remapeador fica instalado. Feche o aplicativo original da Redragon.")
@@ -206,6 +207,31 @@ def inspect_device() -> None:
         say("Ha varios mouses compativeis; deixe conectado somente o que sera configurado.")
 
 
+def update_colors_once() -> None:
+    say("\nSomente iluminacao dos perfis existentes:")
+    say("macOS: rosa fixo RGB 255, 0, 255. Windows: vermelho fixo RGB 255, 0, 0.")
+    say("Botoes 4, 5, 6 e 7, DPI e demais preferencias serao conservados.")
+    say("Feche o aplicativo original da Redragon e conecte o mouse pelo cabo USB.")
+    say("Primeiro vamos reconhecer os perfis pelos atalhos atuais e pelos cliques solicitados no botao 7.")
+    say("Nao pressione botoes durante leituras ou gravacoes; clique somente quando solicitado.")
+    connector = Connector(choose_device())
+    programmer = Programmer(connector, backup_directory(), EXPECTED_DEVICE, say)
+    backup = programmer.update_colors(click_button)
+    say("\nCores gravadas. Backup da configuracao anterior: " + str(backup.path))
+    try:
+        connector.wait_for_reconnect()
+        programmer.verify(backup, observed_disconnect=True, click=click_button)
+        say("\nCores conferidas na memoria apos reconexao; ciclo do botao 7 conferido.")
+        say("Pode fechar o programa. Confira visualmente: macOS rosa, Windows vermelho.")
+        say("Teste tambem a nova iluminacao no receptor 2,4 GHz e no Bluetooth.")
+    except (KeyboardInterrupt, EOFError):
+        say("\nAs cores foram gravadas; a conferencia apos desligar ficou pendente. Use a opcao 3 depois.")
+    except Exception as error:
+        say("\nAs cores foram relidas antes de desconectar, mas a conferencia posterior falhou: " + str(error))
+        say("Backup: " + str(backup.path))
+        say("Use a opcao 3 para verificar ou 4 para restaurar a iluminacao anterior.")
+
+
 def verify_saved() -> None:
     directory = backup_directory()
     backup = choose_backup(directory)
@@ -235,18 +261,21 @@ def main() -> int:
         inspect_device()
         return 0
     while True:
+        say("\nREDRAGON MINI PYTHON 0.3")
         say("\n1 Configurar os dois perfis (assistente com teste fisico do botao 7)")
         say("2 Identificar mouse, sem gravar configuracoes")
         say("3 Verificar configuracao apos desligar/reconectar")
         say("4 Restaurar backup")
+        say("5 Aplicar SOMENTE CORES aos perfis existentes (macOS rosa / Windows vermelho)")
         say("0 Sair")
         try:
             choice = input("Escolha: ").strip()
             if choice == "0":
                 return 0
-            action = {"1": configure_once, "2": inspect_device, "3": verify_saved, "4": restore_saved}.get(choice)
+            action = {"1": configure_once, "2": inspect_device, "3": verify_saved,
+                      "4": restore_saved, "5": update_colors_once}.get(choice)
             if action is None:
-                say("Escolha 0, 1, 2, 3 ou 4.")
+                say("Escolha 0, 1, 2, 3, 4 ou 5.")
                 continue
             action()
         except (KeyboardInterrupt, EOFError):

@@ -1,6 +1,27 @@
-# Revisão da versão Python 0.2
+# Revisão da versão Python 0.3
 
 O objetivo é configurar o próprio mouse uma vez: botão 4 colar, botão 5 copiar, botão 6 captura e botão 7 alternar duas configurações, sem remapeador aberto no computador. O configurador roda no Windows; a execução dos atalhos após a gravação deve vir da memória do mouse.
+
+## Atualização RGB sem reconfigurar os atalhos
+
+O usuário confirmou que a versão 0.2 funciona no mouse real por cabo, receptor 2,4 GHz e Bluetooth, incluindo os quatro botões solicitados. A opção 5 da versão 0.3 acrescenta **macOS magenta `FF00FF` e Windows vermelho `FF0000`**, sem repetir a programação dos atalhos ou dos valores de DPI.
+
+A análise estática da biblioteca nativa fornecida e do aplicativo original identifica a iluminação principal como:
+
+| Região | Conteúdo |
+|---|---|
+| `0xA0–0xA6` | Modo, R, G, B, velocidade, brilho, checksum |
+| `0xA7–0xA8` | Habilitado, checksum |
+
+O modo **3** permite RGB personalizado aceso continuamente. O controle original desabilita a velocidade nesse modo e mantém cor e brilho. O modo 2 é respiração; a tradução inglesa do XML não é suficiente para escolher o efeito. A velocidade existente é conservada e o brilho é **9**, máximo da faixa nativa 0–9. A habilitação é `01 54`. Cada registro soma `0x55` módulo 256, independentemente do checksum do relatório USB.
+
+O serializador nativo escreve **7 bytes em A0 e 2 em A7**. A implementação usa essas unidades tanto na gravação quanto na recuperação, com ACK e releitura. Uma atualização somente de cores nunca escreve fora de `A0–A8`; os indicadores de DPI têm registros separados e são conservados. Tempos de repouso e desligamento das luzes por movimento também são conservados.
+
+Antes de gravar, o assistente lê o ciclo existente com a conexão fechada entre cliques, sem alterar o botão 7. Reconhece cada sistema pelos registros de B4/B5/B6 e exige B7 como troca interna. Aceita somente um ciclo completo alternado de dois ou quatro bancos. Bytes não utilizados no restante de cada slot de atalho não fazem parte da assinatura e são preservados.
+
+Os alvos partem dos dados atuais do mouse. Todos os originais e destinos ficam salvos em um novo backup durável antes da primeira escrita. Uma segunda leitura rejeita dados alterados durante o teste; a leitura integral posterior confere que as demais regiões permaneceram iguais. Em caso de falha, a recuperação de um backup `rgb_only` restaura somente os registros de iluminação, inclusive se outro programa alterou teclas ou DPI depois do backup. A opção de restauração manual respeita o mesmo escopo.
+
+A seleção inicial é devolvida após a atualização e após a conferência RGB do ciclo, inclusive nas saídas por erro quando o dispositivo ainda responde. A exibição e persistência física das novas cores ainda não foram testadas no hardware pelo ambiente de desenvolvimento.
 
 ## Correções verificáveis
 
@@ -26,8 +47,8 @@ As capturas e a análise estática do aplicativo fornecido estabelecem:
 - Relatório **Output** ID `08`, com **17 bytes incluindo o identificador**; respostas na interrupção IN `82`. Não é um Feature Report de 18 bytes.
 - O código original envia os relatórios por `WriteFile` e prepara `ReadFile` sobreposto. O Python usa o mesmo caminho, com prazo compartilhado e cancelamento seguro dos buffers nativos.
 - Checksum de relatório: soma dos 17 bytes módulo 256 igual a `0x55`. Escritas têm ACK idêntico ao comando; a versão atual também faz releitura e confere o banco ativo em cada bloco.
-- Perfil ativo por `0E`, seleção pelo computador por `0F`. As capturas comprovam bancos 0 e 1 selecionáveis, mas não a troca pelo botão físico.
-- A ação genérica `SetChangeConfigKey` produz o registro `09 00 00 4C`. Seu funcionamento neste firmware precisa do teste real.
+- Perfil ativo por `0E`, seleção pelo computador por `0F`. As capturas comprovam bancos 0 e 1 selecionáveis; o usuário confirmou posteriormente a troca pelo botão físico usando a versão 0.2.
+- A ação genérica `SetChangeConfigKey` produz o registro `09 00 00 4C`. Seu funcionamento foi confirmado pelo usuário nesta unidade; isso não autoriza presumir suporte em outras revisões.
 - A operação `12` informa versão; `04 01` é **v4.01**, não uma contagem de quatro bancos.
 
 ## Endereços e DPI
@@ -49,7 +70,7 @@ A foto mostra **M719RGB-PRO / Invader Pro / versão V2**, com Bluetooth, 2,4 GHz
 
 O instalador foi extraído estaticamente e não trouxe firmware `.bin`/`.hex`, configuração V2 alternativa ou outro aplicativo. O payload 8051 dos utilitários chamados Reset e atualização não teve correspondência comprovada com a revisão capturada. Nenhum firmware é gravado por esta ferramenta.
 
-Permanecem dependentes do mouse físico: suporte à ação interna, sequência de bancos, retenção ao desligar e compartilhamento dos perfis com receptor/Bluetooth. O assistente testa os pontos acessíveis pelo cabo e solicita testes de teclas em cada sistema e conexão. Não há software em segundo plano para substituir uma função ausente no firmware.
+O usuário confirmou a troca interna e os atalhos por cabo, receptor e Bluetooth na versão 0.2. O assistente continua medindo a sequência real de bancos e conferindo os dados após reconexão. A iluminação da versão 0.3 ainda precisa de confirmação visual nessas conexões. Não há software em segundo plano para executar a troca.
 
 O backup cobre as regiões modificáveis `0x0000–0x00BF` e `0x0100–0x02FF`; não é imagem completa da memória. Macros longas não são copiadas por aproximação. O programa recusa a duplicação quando ela exigiria replicar uma dessas macros.
 

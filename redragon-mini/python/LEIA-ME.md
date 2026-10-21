@@ -1,8 +1,28 @@
-# Redragon Mini Python 0.2
+# Redragon Mini Python 0.3
 
 Configurador para rodar uma vez no **Windows**, usando **Python 3.10 ou superior**. Depois da gravação e dos testes, o objetivo é usar os atalhos armazenados no próprio mouse, sem este programa aberto no Windows ou no Mac.
 
 Não precisa instalar pacotes com `pip`, drivers ou serviços. Não contém um executável próprio: usa o Python e as APIs HID do Windows.
+
+## Adicionar as cores aos perfis que já funcionam
+
+A versão 0.2 foi **testada por você no mouse real**, com os botões 4, 5, 6 e 7 funcionando por cabo, receptor 2,4 GHz e Bluetooth. Para acrescentar a identificação visual, use a nova opção **5 — Aplicar SOMENTE CORES aos perfis existentes**:
+
+| Perfil identificado pelos atalhos atuais | Iluminação principal fixa |
+|---|---|
+| macOS | Rosa/magenta — R:255 G:0 B:255 (`#FF00FF`) |
+| Windows | Vermelha — R:255 G:0 B:0 (`#FF0000`) |
+
+1. Extraia este ZIP em uma pasta nova e abra **Iniciar.cmd**. Use o mesmo Python já instalado.
+2. Conecte o mouse pelo **cabo USB de dados** e feche o aplicativo original da Redragon.
+3. Escolha **5**. Pressione o botão 7 **uma vez por etapa**, somente quando solicitado, depois Enter. O programa reconhece cada perfil pelos atalhos existentes; não presume o sistema pelo número do banco.
+4. Ele salva um backup novo e grava somente os registros da iluminação principal, com efeito fixo e brilho máximo. Não é necessário copiar o backup da versão 0.2 para esta pasta.
+5. Siga a etapa de desconectar, desligar por cinco segundos e reconectar. O programa relê os perfis e pede novos cliques do botão 7 para conferir o ciclo.
+6. Feche o programa e confira visualmente a mudança: **macOS rosa ↔ Windows vermelho**. Teste as cores também pelo receptor e Bluetooth.
+
+**A opção 5 não regrava botões, atalhos ou DPI.** Conserva também macros, indicadores de DPI e preferências de economia de energia. O perfil que estava ativo no início da operação é selecionado novamente ao final. A verificação após reconexão também devolve a seleção que encontrou. O efeito é de cor fixa; o desligamento das luzes por repouso ou movimento continua seguindo as preferências existentes do mouse.
+
+Os testes de software cobrem a nova gravação e a recuperação. A exibição física das cores novas ainda precisa da sua conferência; o teste bem-sucedido da versão 0.2 comprova os atalhos e a troca de perfis, não esta atualização RGB.
 
 ## Os dois perfis
 
@@ -13,9 +33,11 @@ Não precisa instalar pacotes com `pip`, drivers ou serviços. Não contém um e
 | 6 | Command+1 — captura definida por você | Print Screen |
 | 7 | Alternar a configuração interna | Alternar a configuração interna |
 
-O configurador grava **2000 DPI em todas as etapas habilitadas** dos dois perfis. A iluminação e as demais funções partem dos perfis 1 e 2 existentes; as cores são preservadas. Isso corrige uma diferença das capturas: nelas o perfil macOS estava com 3500 DPI. O programa não configura o atalho Command+1 no macOS; esse atalho precisa continuar cadastrado no sistema.
+Na configuração inicial pela **opção 1**, o configurador grava **2000 DPI em todas as etapas habilitadas** dos dois perfis. A iluminação e as demais funções partem dos perfis 1 e 2 existentes; as cores são preservadas nessa opção. Depois, a opção 5 acrescenta rosa/vermelho. Isso corrige uma diferença das capturas: nelas o perfil macOS estava com 3500 DPI. O programa não configura o atalho Command+1 no macOS; esse atalho precisa continuar cadastrado no sistema.
 
-## Como rodar
+## Configuração inicial completa — opção 1
+
+Se os atalhos já funcionam, use somente a opção 5 descrita acima.
 
 1. Instale o **Python 3.10 ou superior para Windows**, se ainda não tiver. Use o instalador oficial de <https://www.python.org/downloads/windows/>. O iniciador reconhece `py` ou `python`.
 2. Extraia o ZIP inteiro em uma pasta sua. Não abra os arquivos de dentro do ZIP.
@@ -50,13 +72,15 @@ A etiqueta identifica um M719RGB-PRO, versão V2, com cabo, 2,4 GHz e Bluetooth.
 
 O nome comercial não basta para assumir que revisões diferentes usam o mesmo protocolo. Se seu mouse atual apresentar outros identificadores, a opção 2 mostra os candidatos em modo de leitura, e a gravação é recusada. Não são tentados comandos de outros modelos por aproximação.
 
-As capturas comprovam gravações no modo com cabo. A retenção após desligar, a execução real de copiar/colar/print em cada sistema e o compartilhamento dos perfis com o receptor ou Bluetooth precisam dos testes no seu mouse. Dados iguais depois de uma releitura na mesma sessão, sozinhos, não comprovam isso.
+As capturas comprovam gravações no modo com cabo. Depois de usar a versão 0.2, você confirmou o funcionamento real dos botões e da troca de perfis por cabo, receptor e Bluetooth. A nova iluminação ainda requer conferência visual nesses modos. Dados iguais depois de uma releitura na mesma sessão, sozinhos, não comprovam persistência após desligar.
 
 ## Backup, cancelamento e restauração
 
 Os backups ficam na pasta `backups` ao lado dos scripts. Se ela não permitir escrita, o programa usa `%LOCALAPPDATA%\RedragonMiniPython\backups` e informa o caminho.
 
 Cada arquivo JSON guarda os bytes originais, checksums, bancos observados e estado do procedimento. Guarde o primeiro backup de uma configuração. As regiões incluídas são `0x0000–0x00BF` e `0x0100–0x02FF`; não é uma cópia do firmware ou da memória inteira.
+
+Um backup criado pela opção 5 recebe `operation: "rgb_only"`. Tanto a recuperação automática quanto **4 — Restaurar backup**, ao usar esse arquivo, restauram somente a iluminação principal anterior. Outras configurações alteradas posteriormente não são substituídas por esses backups de cores. Backups antigos da configuração completa continuam restaurando a configuração completa.
 
 **Ctrl+C durante a configuração** tenta restaurar os dados originais. Uma desconexão pode impedir a restauração automática; reconecte pelo cabo e escolha **4 — Restaurar backup**. A restauração consegue reparar registros de botão deixados com checksum inválido por uma gravação interrompida, usando um backup válido.
 

@@ -128,6 +128,26 @@ class ConnectorTests(unittest.TestCase):
             self.assertEqual(configure.main(), 1)
             enumerate_hid.assert_not_called()
 
+    def test_menu_five_runs_color_only_programming_then_readonly_verification(self):
+        with patch.object(configure.os, "name", "nt"), \
+             patch.object(configure.sys, "argv", ["configure.py"]), \
+             patch("builtins.input", side_effect=["5", "0"]), \
+             patch.object(configure, "say"), \
+             patch.object(configure, "choose_device", return_value=device()), \
+             patch.object(configure, "backup_directory", return_value="backups"), \
+             patch.object(configure, "Connector") as connector_class, \
+             patch.object(configure, "Programmer") as programmer_class, \
+             patch.object(configure, "configure_once") as full_configuration:
+            self.assertEqual(configure.main(), 0)
+            program = programmer_class.return_value
+            program.update_colors.assert_called_once_with(configure.click_button)
+            program.configure.assert_not_called()
+            full_configuration.assert_not_called()
+            connector_class.return_value.wait_for_reconnect.assert_called_once_with()
+            program.verify.assert_called_once_with(program.update_colors.return_value,
+                                                   observed_disconnect=True,
+                                                   click=configure.click_button)
+
 
 if __name__ == "__main__":
     unittest.main()

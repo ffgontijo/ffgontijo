@@ -1,1 +1,2 @@
 29c1e408555b7741180849c8888a93f7ac69f31d5d02b817c69df3f846cabffd  RedragonMini-Python-v0.2.zip
+c043a1c5c5bf80dbbd70795d33a8b379053e371c198f645115c907c67a2763fd  RedragonMini-Python-v0.3.zip

@@ -1,25 +1,37 @@
-Redragon Mini Python 0.2 - validacao de software
+Redragon Mini Python 0.3 - validacao de software
 
-67 testes passaram:
+88 testes passaram:
 - 21 de protocolo e codificacao, incluindo frames capturados.
 - 10 do transporte HID com API nativa simulada.
 - 27 de planejamento, configuracao, backup e recuperacao.
-- 9 do assistente/conexao e observacao de reconexao.
+- 10 do assistente/conexao, menu RGB e observacao de reconexao.
+- 20 da atualizacao RGB, classificacao, preservacao e recuperacao.
 
-Executado com Python 3.12 no ambiente Linux, sem dispositivo USB real.
+Executado no ambiente Linux, sem dispositivo USB real.
 Comando, na pasta do configurador:
   python -m unittest discover -s tests -v
 
-Arquivos .py tambem compilados pelo parser Python sem erros.
+Arquivos .py aceitos pelo parser com gramatica Python 3.10.
 Ajuda --help funciona sem carregar DLL do Windows.
 Execucao USB fora do Windows e recusada antes de acessar hardware.
 
-Ainda nao validado no computador do usuario:
-- comunicacao Win32/HID com o mouse real;
-- suporte do firmware ao botao 7;
-- retencao apos desligar e atalhos em cada sistema;
-- compartilhamento de perfis com receptor/Bluetooth.
+RGB: modo 3 fixo, macOS FF00FF, Windows FF0000, brilho 9/9,
+velocidade existente conservada e habilitacao 01 54. Escritas
+somente A0/7 bytes e A7/2 bytes, conforme o serializador nativo.
+Preservados: botoes, atalhos, DPI, macros, indicadores de DPI,
+preferencias de energia e selecao inicial do perfil.
 
-O assistente fecha sua conexao entre cliques, testa a troca fisica antes
-  da gravacao final e confere os dados apos desconexao/reconexao observada.
-Nenhum teste automatizado equivale a comprovar esse comportamento fisico.
+Testes incluem ciclo real 2/4 com conexao fechada entre cliques,
+identificacao pelos atalhos em vez de numero de banco, backup de
+todos os bancos antes da primeira escrita, recusa de plano obsoleto,
+falha parcial dos dois registros LED, restauracao RGB mantendo
+alteracoes externas em DPI/atalhos e selecao preservada na verificacao.
+
+Validacao fisica informada pelo usuario:
+- versao 0.2 funcionou por cabo, receptor 2,4 GHz e Bluetooth;
+- botoes 4, 5, 6 e 7 funcionaram conforme os perfis solicitados.
+
+Ainda pendente no hardware: conferencia visual das novas cores e
+sua persistencia ao desligar e usar os diferentes modos de conexao.
+O programa relera a memoria apos desconexao/reconexao observada.
+Nenhum teste simulado substitui essa conferencia fisica das cores.
