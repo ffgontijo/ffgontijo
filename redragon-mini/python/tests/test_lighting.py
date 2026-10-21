@@ -6,16 +6,19 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from mouse_lighting import colored_snapshot, profile_kind
-from mouse_protocol import key_address, key_record, shortcut, shortcut_address
+from mouse_lighting import colored_snapshot, profile_kind, profile_lighting_snapshot
+from mouse_protocol import build_report, key_address, key_record, shortcut, shortcut_address
 from mouse_service import Backup, ConfigurationError, EXPECTED_DEVICE, Programmer
 from test_service import FakeDevice, snapshot
 
 
-# Independently confirmed native LedBar record, not an allowlist returned by the
-# implementation being tested. B3/move-off and DPI LED records are NOT included.
+# Independently established native records, not the implementation's allowlist.
+# v0.4 explicitly includes DPI indicator colors and movement blanking.
 LED_START = 0xA0
 LED_END = 0xA9
+LIGHTING_RECORDS = (tuple((0x2C + 4 * i, 4) for i in range(8))
+                    + ((0x4C, 2), (0x4E, 2), (0x52, 2), (0xA0, 7), (0xA7, 2), (0xB3, 2)))
+LIGHTING_BYTES = {at for start, length in LIGHTING_RECORDS for at in range(start, start + length)}
 RGB = {"macos": (255, 0, 255), "windows": (255, 0, 0)}
 
 
@@ -58,7 +61,7 @@ class LightingTests(unittest.TestCase):
     def assert_non_lighting_unchanged(self, device, before):
         for index, memory in device.banks.items():
             for at in range(len(memory)):
-                if at not in range(LED_START, LED_END):
+                if at not in LIGHTING_BYTES:
                     self.assertEqual(memory[at], before[index][at], f"Bank {index}, non-LED address 0x{at:04X}")
 
     def assert_led(self, state, kind, old_speed):
@@ -113,7 +116,7 @@ class LightingTests(unittest.TestCase):
         self.assertEqual(bytes(device.banks[2]), before[2])
         self.assertEqual(bytes(device.banks[3]), before[3])
         self.assertTrue(device.writes)
-        self.assertTrue(all((at, len(data)) in ((0xA0, 7), (0xA7, 2)) for _, at, data in device.writes))
+        self.assertTrue(all((at, len(data)) in LIGHTING_RECORDS for _, at, data in device.writes))
         self.assert_led(snapshot(0, device.banks[0]), "macos", old_speed=4)
         self.assert_led(snapshot(1, device.banks[1]), "windows", old_speed=4)
 
@@ -133,7 +136,7 @@ class LightingTests(unittest.TestCase):
             for bank, original in journal.snapshots().items():
                 self.assertEqual(original.config, before[bank][:0xC0])
                 self.assertEqual(original.shortcuts, before[bank][0x100:0x300])
-            self.assertIn(address, (0xA0, 0xA7))
+            self.assertIn((address, len(data)), LIGHTING_RECORDS)
             checks.append(index)
 
         device.before_write = before_write
@@ -224,7 +227,7 @@ class LightingTests(unittest.TestCase):
         self.assertEqual(device.active, 1)
         self.assertEqual(device.open_handles, 0)
         self.assertEqual({index: bytes(data) for index, data in device.banks.items()}, before)
-        self.assertTrue(all((at, len(data)) in ((0xA0, 7), (0xA7, 2)) for _, at, data in device.writes))
+        self.assertTrue(all((at, len(data)) in LIGHTING_RECORDS for _, at, data in device.writes))
         journal = Backup.load(next(self.directory.glob("*.json")))
         self.assertEqual(journal.document["cycle"], [0, 1, 2, 3])
         self.assertEqual(journal.document["phase"], "restored")
@@ -238,7 +241,7 @@ class LightingTests(unittest.TestCase):
     def test_existing_target_colors_are_a_memory_write_noop(self):
         device = working_device()
         for index in device.cycle:
-            state = colored_snapshot(snapshot(index, device.banks[index]))
+            state = profile_lighting_snapshot(snapshot(index, device.banks[index]))
             device.banks[index][:0xC0] = state.config
         before = {index: bytes(data) for index, data in device.banks.items()}
         self.program(device).update_colors(device.click)
@@ -308,7 +311,7 @@ class LightingTests(unittest.TestCase):
         expected[0][shortcut_address(5) + 25] = 0xDE
         self.assertEqual({index: bytes(data) for index, data in device.banks.items()},
                          {index: bytes(data) for index, data in expected.items()})
-        self.assertTrue(all((at, len(data)) in ((0xA0, 7), (0xA7, 2)) for _, at, data in device.writes))
+        self.assertTrue(all((at, len(data)) in LIGHTING_RECORDS for _, at, data in device.writes))
         self.assertEqual(device.active, 1)
         self.assertEqual(Backup.load(next(self.directory.glob("*.json"))).document["phase"], "restored")
 
@@ -326,7 +329,7 @@ class LightingTests(unittest.TestCase):
         self.assert_non_lighting_unchanged(device, before_restore)
         for index in device.cycle:
             self.assertEqual(bytes(device.banks[index][LED_START:LED_END]), original[index][LED_START:LED_END])
-        self.assertTrue(all((at, len(data)) in ((0xA0, 7), (0xA7, 2)) for _, at, data in device.writes))
+        self.assertTrue(all((at, len(data)) in LIGHTING_RECORDS for _, at, data in device.writes))
         self.assertEqual(device.active, 0)
         self.assertEqual(recovery.document["operation"], "rgb_only")
         self.assertEqual(Backup.load(recovery.path).document["phase"], "restore_completed")
@@ -357,6 +360,124 @@ class LightingTests(unittest.TestCase):
         self.assertFalse(backup.document["usb_reconnect_verified"])
         self.assertFalse(backup.document["hardware_cycle_reverified"])
         self.assertEqual(backup.document["phase"], "verification_failed")
+
+    def test_v04_aligns_all_indicator_stages_and_disables_movement_blanking(self):
+        device = working_device()
+        before = {index: bytes(data) for index, data in device.banks.items()}
+        self.program(device).update_colors(device.click)
+        for index, expected in ((0, bytes.fromhex("ff 00 ff 57")), (1, bytes.fromhex("ff 00 00 56"))):
+            memory = device.banks[index]
+            for stage in range(8):
+                at = 0x2C + stage * 4
+                self.assertEqual(memory[at:at + 4], expected)
+            self.assertEqual(memory[0x4C:0x50], bytes.fromhex("01 54 ff 56"))
+            self.assertEqual(memory[0x52:0x54], bytes.fromhex("01 54"))
+            self.assertEqual(memory[0xB3:0xB5], bytes.fromhex("00 55"))
+            self.assertEqual(memory[0x50:0x52], before[index][0x50:0x52], "Breathing speed is not used or rewritten")
+            self.assertEqual(memory[0xAD:0xAF], before[index][0xAD:0xAF], "Idle sleep time must remain unchanged")
+            self.assertEqual(memory[:0x2C], before[index][:0x2C], "All DPI values/count/index must stay unchanged")
+        self.assert_non_lighting_unchanged(device, before)
+        self.assertTrue(any(at == 0xB3 and data == bytes.fromhex("00 55") for _, at, data in device.writes))
+
+    def test_known_wire_frames_for_indicator_and_movement_records(self):
+        self.assertEqual(build_report(7, 0xB3, 2, bytes.fromhex("00 55")),
+                         bytes.fromhex("08 07 00 00 b3 02 00 55 00 00 00 00 00 00 00 00 3c"))
+        self.assertEqual(build_report(7, 0x2C, 4, bytes.fromhex("ff 00 ff 57")),
+                         bytes.fromhex("08 07 00 00 2c 04 ff 00 ff 57 00 00 00 00 00 00 c1"))
+
+    def test_new_indicator_and_movement_record_failures_restore_originals(self):
+        for address in (0x2C, 0x4C, 0x4E, 0x52, 0xB3):
+            with self.subTest(address=address):
+                self.check_failed_led_write(address)
+
+    def test_legacy_rgb_backup_restore_does_not_gain_new_regions(self):
+        device = working_device()
+        program = self.program(device)
+        backup = program.update_colors(device.click)
+        del backup.document["lighting_scope"]  # older v0.3 files had no scope field
+        backup.save()
+        legacy = Backup.load(backup.path)
+        before_restore = {index: bytes(data) for index, data in device.banks.items()}
+        device.writes.clear()
+        program.restore(legacy)
+        self.assertTrue(all((at, len(data)) in ((0xA0, 7), (0xA7, 2)) for _, at, data in device.writes))
+        for index in device.cycle:
+            memory = device.banks[index]
+            self.assertEqual(memory[0x2C:0x54], before_restore[index][0x2C:0x54])
+            self.assertEqual(memory[0xB3:0xB5], before_restore[index][0xB3:0xB5])
+
+    def test_unknown_lighting_backup_scope_is_rejected(self):
+        device = working_device()
+        backup = self.program(device).update_colors(device.click)
+        backup.document["lighting_scope"] = "keys_and_firmware"
+        backup.save()
+        with self.assertRaises(ConfigurationError):
+            Backup.load(backup.path)
+
+    def test_failed_manual_restore_recovers_new_lighting_scope(self):
+        device = working_device()
+        program = self.program(device)
+        backup = program.update_colors(device.click)
+        programmed = {index: bytes(data) for index, data in device.banks.items()}
+        device.failure = lambda _index, address, _data: address == 0xB3
+        device.writes.clear()
+        with self.assertRaises(ConfigurationError):
+            program.restore(backup)
+        self.assertTrue(device.failed_once)
+        self.assertEqual({index: bytes(data) for index, data in device.banks.items()}, programmed)
+        self.assertTrue(all((at, len(data)) in LIGHTING_RECORDS for _, at, data in device.writes))
+
+    def test_final_cross_bank_read_detects_later_write_overwriting_earlier_led(self):
+        device = working_device()
+        for index in device.banks:
+            device.banks[index][0xA0:0xA9] = device.banks[0][0xA0:0xA9]
+        before = {index: bytes(data) for index, data in device.banks.items()}
+        real_write = device.write_memory
+
+        def write_shared(address, data, expected_profile=None):
+            real_write(address, data, expected_profile=expected_profile)
+            if device.active == 1 and address in (0xA0, 0xA7):
+                for memory in device.banks.values():
+                    memory[address:address + len(data)] = data
+
+        device.write_memory = write_shared
+        with self.assertRaisesRegex(ConfigurationError, "cores independentes"):
+            self.program(device).update_colors(device.click)
+        self.assertEqual({index: bytes(data) for index, data in device.banks.items()}, before)
+        self.assertEqual(device.active, 1)
+
+    def test_physical_cycle_read_catches_lighting_changed_by_button(self):
+        device = working_device()
+        program = self.program(device)
+        backup = program.update_colors(device.click)
+        first_verify_click = device.clicks + 1
+
+        def on_click(clicks):
+            if clicks == first_verify_click:
+                device.banks[device.active][0xB3:0xB5] = bytes.fromhex("01 54")
+
+        device.after_click = on_click
+        writes_before = list(device.writes)
+        with self.assertRaisesRegex(ConfigurationError, "clique fisico"):
+            program.verify(backup, observed_disconnect=True, click=device.click)
+        self.assertEqual(device.writes, writes_before)
+        self.assertEqual(device.active, 1)
+        loaded = Backup.load(backup.path)
+        self.assertEqual(loaded.document["phase"], "verification_failed")
+        self.assertEqual(loaded.document["physical_lighting_reads"][0]["move_off_enabled"], 1)
+        self.assertFalse(loaded.document["visual_color_confirmed"])
+
+    def test_byte_and_cycle_verification_does_not_claim_visual_color_success(self):
+        device = working_device(cycle=(0, 1, 2, 3))
+        program = self.program(device)
+        backup = program.update_colors(device.click)
+        program.verify(backup, observed_disconnect=True, click=device.click)
+        self.assertTrue(backup.document["hardware_cycle_reverified"])
+        self.assertFalse(backup.document["visual_color_confirmed"])
+        readings = Backup.load(backup.path).document["physical_lighting_reads"]
+        self.assertEqual([item["bank"] for item in readings], [1, 2, 3, 0])
+        self.assertTrue(all(not item["move_off_enabled"] for item in readings))
+        self.assertTrue(all(item["main_rgb"] == list(RGB[item["platform"]]) == item["dpi_rgb"] for item in readings))
 
 
 if __name__ == "__main__":

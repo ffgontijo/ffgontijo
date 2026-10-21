@@ -1,13 +1,13 @@
-Redragon Mini Python 0.3 - validacao de software
+Redragon Mini Python 0.4 - validacao de software
 
-88 testes passaram:
+98 testes passaram:
 - 21 de protocolo e codificacao, incluindo frames capturados.
 - 10 do transporte HID com API nativa simulada.
 - 27 de planejamento, configuracao, backup e recuperacao.
-- 10 do assistente/conexao, menu RGB e observacao de reconexao.
-- 20 da atualizacao RGB, classificacao, preservacao e recuperacao.
+- 11 do assistente/conexao, menu RGB, conferencia visual e reconexao.
+- 29 da atualizacao RGB, classificacao, preservacao e recuperacao.
 
-Executado no ambiente Linux, sem dispositivo USB real.
+Executado com Python 3.12.14 no Linux, sem dispositivo USB real.
 Comando, na pasta do configurador:
   python -m unittest discover -s tests -v
 
@@ -15,23 +15,34 @@ Arquivos .py aceitos pelo parser com gramatica Python 3.10.
 Ajuda --help funciona sem carregar DLL do Windows.
 Execucao USB fora do Windows e recusada antes de acessar hardware.
 
-RGB: modo 3 fixo, macOS FF00FF, Windows FF0000, brilho 9/9,
-velocidade existente conservada e habilitacao 01 54. Escritas
-somente A0/7 bytes e A7/2 bytes, conforme o serializador nativo.
-Preservados: botoes, atalhos, DPI, macros, indicadores de DPI,
-preferencias de energia e selecao inicial do perfil.
+Faixa RGB: modo 3 fixo, macOS FF00FF, Windows FF0000,
+brilho 9/9, velocidade existente conservada, habilitacao 01 54.
+Indicador DPI: oito cores no mesmo RGB do perfil, modo 1 fixo,
+brilho maximo FF, habilitacao 01 54. Apagar ao mover: 00 55.
+Escritas em registros conhecidos de 4 bytes (cores dos estagios),
+2 bytes (modo/brilho/habilitacao/movimento) e 7 bytes (faixa RGB).
+Preservados: botoes, atalhos, valores/quantidade/indice DPI, macros,
+tempo de repouso, velocidades e selecao inicial do perfil.
 
 Testes incluem ciclo real 2/4 com conexao fechada entre cliques,
 identificacao pelos atalhos em vez de numero de banco, backup de
 todos os bancos antes da primeira escrita, recusa de plano obsoleto,
-falha parcial dos dois registros LED, restauracao RGB mantendo
-alteracoes externas em DPI/atalhos e selecao preservada na verificacao.
+falhas parciais dos registros LED e movimento, restauracao mantendo
+alteracoes externas em DPI/atalhos, compatibilidade dos backups RGB
+0.3, propagacao de escopo em falha de restauracao e selecao preservada.
+Uma releitura final de todos os bancos detecta sobrescrita cruzada.
+A verificacao por botao le os registros depois do clique fisico,
+sem selecionar antes o banco pelo computador. Bytes/ciclo corretos
+nao marcam visual_color_confirmed; isso depende da resposta do usuario.
 
 Validacao fisica informada pelo usuario:
 - versao 0.2 funcionou por cabo, receptor 2,4 GHz e Bluetooth;
 - botoes 4, 5, 6 e 7 funcionaram conforme os perfis solicitados.
+- na versao 0.3, os bytes de cor persistiram apos reconectar;
+- apesar disso, a luz ficou vermelha e apagava ao mover sem fio.
 
-Ainda pendente no hardware: conferencia visual das novas cores e
-sua persistencia ao desligar e usar os diferentes modos de conexao.
-O programa relera a memoria apos desconexao/reconexao observada.
+Ainda pendente no hardware: conferencia visual da correcao 0.4,
+incluindo indicador DPI alinhado e apagamento ao mover desativado.
+O programa relera a memoria apos desconexao/reconexao observada e
+registrara as leituras depois do botao 7 e a resposta visual separada.
 Nenhum teste simulado substitui essa conferencia fisica das cores.

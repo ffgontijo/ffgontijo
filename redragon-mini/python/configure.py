@@ -157,7 +157,7 @@ def click_button(current: int) -> None:
 
 
 def describe() -> None:
-    say("\nREDRAGON MINI PYTHON 0.3 - configuracao unica no Windows")
+    say("\nREDRAGON MINI PYTHON 0.4 - configuracao unica no Windows")
     say("                 macOS                Windows")
     say("Botao 4:         Command+V            Ctrl+V")
     say("Botao 5:         Command+C            Ctrl+C")
@@ -210,7 +210,9 @@ def inspect_device() -> None:
 def update_colors_once() -> None:
     say("\nSomente iluminacao dos perfis existentes:")
     say("macOS: rosa fixo RGB 255, 0, 255. Windows: vermelho fixo RGB 255, 0, 0.")
-    say("Botoes 4, 5, 6 e 7, DPI e demais preferencias serao conservados.")
+    say("A faixa RGB e o indicador de DPI receberao a mesma cor fixa, sem animacao.")
+    say("Lights off when moving sera DESATIVADO em todos os bancos.")
+    say("Botoes 4, 5, 6 e 7 e os valores de DPI serao conservados.")
     say("Feche o aplicativo original da Redragon e conecte o mouse pelo cabo USB.")
     say("Primeiro vamos reconhecer os perfis pelos atalhos atuais e pelos cliques solicitados no botao 7.")
     say("Nao pressione botoes durante leituras ou gravacoes; clique somente quando solicitado.")
@@ -221,8 +223,18 @@ def update_colors_once() -> None:
     try:
         connector.wait_for_reconnect()
         programmer.verify(backup, observed_disconnect=True, click=click_button)
-        say("\nCores conferidas na memoria apos reconexao; ciclo do botao 7 conferido.")
-        say("Pode fechar o programa. Confira visualmente: macOS rosa, Windows vermelho.")
+        say("\nDados de iluminacao conferidos apos reconexao e depois de cada clique do botao 7.")
+        say("Agora a conexao esta fechada. Aperte o botao 7 e observe a luz estabilizada em cada perfil.")
+        answer = input("A luz alterna ROSA no macOS e VERMELHO no Windows? [s/n; Enter = conferir depois]: ").strip().lower()
+        confirmed = True if answer in ("s", "sim") else False if answer in ("n", "nao", "não") else None
+        backup.phase(backup.document["phase"], visual_color_confirmed=confirmed)
+        if confirmed is True:
+            say("Alternancia visual confirmada por voce. Pode fechar o programa.")
+        elif confirmed is False:
+            say("A memoria confere, mas a luz visivel NAO alternou. A configuracao visual nao foi confirmada.")
+            say("Guarde o log dos bancos acima e o backup para diagnosticar a ativacao da luz pelo firmware.")
+        else:
+            say("Memoria conferida; alternancia visual ainda pendente.")
         say("Teste tambem a nova iluminacao no receptor 2,4 GHz e no Bluetooth.")
     except (KeyboardInterrupt, EOFError):
         say("\nAs cores foram gravadas; a conferencia apos desligar ficou pendente. Use a opcao 3 depois.")
@@ -261,12 +273,12 @@ def main() -> int:
         inspect_device()
         return 0
     while True:
-        say("\nREDRAGON MINI PYTHON 0.3")
+        say("\nREDRAGON MINI PYTHON 0.4")
         say("\n1 Configurar os dois perfis (assistente com teste fisico do botao 7)")
         say("2 Identificar mouse, sem gravar configuracoes")
         say("3 Verificar configuracao apos desligar/reconectar")
         say("4 Restaurar backup")
-        say("5 Aplicar SOMENTE CORES aos perfis existentes (macOS rosa / Windows vermelho)")
+        say("5 Ajustar SOMENTE ILUMINACAO (Mac rosa / Windows vermelho; manter acesa ao mover)")
         say("0 Sair")
         try:
             choice = input("Escolha: ").strip()

@@ -1,10 +1,30 @@
-# Revisão da versão Python 0.3
+# Revisão da versão Python 0.4
 
 O objetivo é configurar o próprio mouse uma vez: botão 4 colar, botão 5 copiar, botão 6 captura e botão 7 alternar duas configurações, sem remapeador aberto no computador. O configurador roda no Windows; a execução dos atalhos após a gravação deve vir da memória do mouse.
 
-## Atualização RGB sem reconfigurar os atalhos
+## Correção após o teste físico da versão 0.3
 
-O usuário confirmou que a versão 0.2 funciona no mouse real por cabo, receptor 2,4 GHz e Bluetooth, incluindo os quatro botões solicitados. A opção 5 da versão 0.3 acrescenta **macOS magenta `FF00FF` e Windows vermelho `FF0000`**, sem repetir a programação dos atalhos ou dos valores de DPI.
+O usuário forneceu o log completo da versão 0.3: os bancos foram classificados corretamente como macOS/Windows/macOS/Windows e os bytes persistiram após desligar/reconectar. Mesmo assim, a luz permaneceu vermelha; o botão 7 só causava um breve piscar. A mesma cor era momentaneamente alterada pelo aplicativo original e retornava ao vermelho. No receptor, a iluminação apagava ao mover.
+
+Portanto, não há evidência de perda da gravação, nem de um aplicativo original aberto sobrescrevendo os dados. A versão 0.3 não configurava o indicador de DPI, cuja primeira etapa estava vermelha em ambos os perfis das capturas, nem alterava a preferência de apagar ao mover, que estava habilitada. Esses são dois pontos concretos corrigidos na versão 0.4. A hipótese de interferência entre grupos de iluminação é compatível com o relato, mas sua causalidade física ainda precisa de confirmação.
+
+| Registros adicionais | Destino na versão 0.4 |
+|---|---|
+| `0x2C + 4*i`, oito estágios | R,G,B,checksum: macOS `FF 00 FF 57`, Windows `FF 00 00 56` |
+| `0x4C–0x4D` | Indicador DPI fixo: `01 54` |
+| `0x4E–0x4F` | Brilho máximo do indicador: `FF 56` |
+| `0x52–0x53` | Indicador habilitado: `01 54` |
+| `0xB3–0xB4` | Apagar ao mover desativado: `00 55` |
+
+Os registros de valores DPI `0x0C–0x2B`, quantidade/índice das etapas e tempo de repouso `0xAD–0xAE` continuam intactos. A velocidade de respiração do indicador em `0x50–0x51` é conservada, pois não é utilizada em modo fixo. A estrutura DPILed, o parser/serializador nativo e os controles originais confirmam os campos. `ValueConvert.DPIIndexToBrightness(10)` retorna 255; essa escala é diferente do brilho 0–9 da faixa principal. As escritas respeitam registros RGB de quatro bytes e opções de dois bytes.
+
+Depois da gravação de todos os bancos, há uma segunda conferência de todos eles para detectar sobrescrita de um banco pela gravação de outro. Após reconexão, cada clique físico do botão 7 é seguido por leitura do banco resultante sem selecioná-lo primeiro com o computador. O backup registra esses dados em `physical_lighting_reads`. A aparência é perguntada separadamente ao usuário, em `visual_color_confirmed`, e nunca é inferida da igualdade dos bytes.
+
+O backup de iluminação recebe escopo enumerado `main_dpi_movement`; a restauração utiliza somente as regiões conhecidas desse escopo, sem aceitar endereços arbitrários vindos do JSON. A ausência do campo indica o escopo original da versão 0.3, somente `A0–A8`. A recuperação antes/depois de restauração também propaga o escopo, preservando botões e DPI mesmo com falhas parciais.
+
+## Atualização RGB da versão 0.3, base da implementação
+
+O usuário confirmou que a versão 0.2 funciona no mouse real por cabo, receptor 2,4 GHz e Bluetooth, incluindo os quatro botões solicitados. A opção 5 acrescenta **macOS magenta `FF00FF` e Windows vermelho `FF0000`**, sem repetir a programação dos atalhos ou dos valores de DPI.
 
 A análise estática da biblioteca nativa fornecida e do aplicativo original identifica a iluminação principal como:
 
@@ -15,13 +35,13 @@ A análise estática da biblioteca nativa fornecida e do aplicativo original ide
 
 O modo **3** permite RGB personalizado aceso continuamente. O controle original desabilita a velocidade nesse modo e mantém cor e brilho. O modo 2 é respiração; a tradução inglesa do XML não é suficiente para escolher o efeito. A velocidade existente é conservada e o brilho é **9**, máximo da faixa nativa 0–9. A habilitação é `01 54`. Cada registro soma `0x55` módulo 256, independentemente do checksum do relatório USB.
 
-O serializador nativo escreve **7 bytes em A0 e 2 em A7**. A implementação usa essas unidades tanto na gravação quanto na recuperação, com ACK e releitura. Uma atualização somente de cores nunca escreve fora de `A0–A8`; os indicadores de DPI têm registros separados e são conservados. Tempos de repouso e desligamento das luzes por movimento também são conservados.
+O serializador nativo escreve **7 bytes em A0 e 2 em A7**. A implementação usa essas unidades tanto na gravação quanto na recuperação, com ACK e releitura. Na versão 0.3, a atualização escrevia somente `A0–A8`; na versão 0.4 os registros adicionais são os indicados acima. O tempo de repouso continua conservado.
 
 Antes de gravar, o assistente lê o ciclo existente com a conexão fechada entre cliques, sem alterar o botão 7. Reconhece cada sistema pelos registros de B4/B5/B6 e exige B7 como troca interna. Aceita somente um ciclo completo alternado de dois ou quatro bancos. Bytes não utilizados no restante de cada slot de atalho não fazem parte da assinatura e são preservados.
 
 Os alvos partem dos dados atuais do mouse. Todos os originais e destinos ficam salvos em um novo backup durável antes da primeira escrita. Uma segunda leitura rejeita dados alterados durante o teste; a leitura integral posterior confere que as demais regiões permaneceram iguais. Em caso de falha, a recuperação de um backup `rgb_only` restaura somente os registros de iluminação, inclusive se outro programa alterou teclas ou DPI depois do backup. A opção de restauração manual respeita o mesmo escopo.
 
-A seleção inicial é devolvida após a atualização e após a conferência RGB do ciclo, inclusive nas saídas por erro quando o dispositivo ainda responde. A exibição e persistência física das novas cores ainda não foram testadas no hardware pelo ambiente de desenvolvimento.
+A seleção inicial é devolvida após a atualização e após a conferência RGB do ciclo, inclusive nas saídas por erro quando o dispositivo ainda responde. A persistência dos bytes da versão 0.3 foi confirmada pelo usuário; a aparência desejada não funcionou. A exibição física da correção 0.4 ainda precisa do teste no mouse.
 
 ## Correções verificáveis
 
@@ -70,7 +90,7 @@ A foto mostra **M719RGB-PRO / Invader Pro / versão V2**, com Bluetooth, 2,4 GHz
 
 O instalador foi extraído estaticamente e não trouxe firmware `.bin`/`.hex`, configuração V2 alternativa ou outro aplicativo. O payload 8051 dos utilitários chamados Reset e atualização não teve correspondência comprovada com a revisão capturada. Nenhum firmware é gravado por esta ferramenta.
 
-O usuário confirmou a troca interna e os atalhos por cabo, receptor e Bluetooth na versão 0.2. O assistente continua medindo a sequência real de bancos e conferindo os dados após reconexão. A iluminação da versão 0.3 ainda precisa de confirmação visual nessas conexões. Não há software em segundo plano para executar a troca.
+O usuário confirmou a troca interna e os atalhos por cabo, receptor e Bluetooth na versão 0.2. O assistente continua medindo a sequência real de bancos e conferindo os dados após reconexão. A correção de iluminação da versão 0.4 ainda precisa de confirmação visual nessas conexões. Não há software em segundo plano para executar a troca.
 
 O backup cobre as regiões modificáveis `0x0000–0x00BF` e `0x0100–0x02FF`; não é imagem completa da memória. Macros longas não são copiadas por aproximação. O programa recusa a duplicação quando ela exigiria replicar uma dessas macros.
 

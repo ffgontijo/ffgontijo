@@ -131,7 +131,7 @@ class ConnectorTests(unittest.TestCase):
     def test_menu_five_runs_color_only_programming_then_readonly_verification(self):
         with patch.object(configure.os, "name", "nt"), \
              patch.object(configure.sys, "argv", ["configure.py"]), \
-             patch("builtins.input", side_effect=["5", "0"]), \
+             patch("builtins.input", side_effect=["5", "s", "0"]), \
              patch.object(configure, "say"), \
              patch.object(configure, "choose_device", return_value=device()), \
              patch.object(configure, "backup_directory", return_value="backups"), \
@@ -147,6 +147,21 @@ class ConnectorTests(unittest.TestCase):
             program.verify.assert_called_once_with(program.update_colors.return_value,
                                                    observed_disconnect=True,
                                                    click=configure.click_button)
+            self.assertTrue(program.update_colors.return_value.phase.call_args.kwargs["visual_color_confirmed"])
+
+    def test_user_report_of_unchanged_light_is_not_recorded_as_visual_success(self):
+        with patch.object(configure, "say") as output, \
+             patch("builtins.input", return_value="n"), \
+             patch.object(configure, "choose_device", return_value=device()), \
+             patch.object(configure, "backup_directory", return_value="backups"), \
+             patch.object(configure, "Connector"), \
+             patch.object(configure, "Programmer") as programmer_class:
+            configure.update_colors_once()
+            backup = programmer_class.return_value.update_colors.return_value
+            self.assertIs(backup.phase.call_args.kwargs["visual_color_confirmed"], False)
+            messages = [call.args[0] for call in output.call_args_list]
+            self.assertTrue(any("NAO alternou" in text for text in messages))
+            self.assertFalse(any("Alternancia visual confirmada por voce" in text for text in messages))
 
 
 if __name__ == "__main__":

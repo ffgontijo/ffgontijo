@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from typing import Callable, ContextManager
 
 from mouse_protocol import Protocol, Snapshot, key_address, key_record, shortcut, shortcut_address
-from mouse_lighting import colored_snapshot, profile_kind
+from mouse_lighting import (INDICATOR_SCOPE, describe_lighting, lighting_records,
+                            lighting_status, profile_kind, profile_lighting_snapshot)
 
 FORMAT = "redragon-mini-python/1"
 EXPECTED_DEVICE = {"vendor_id": 0x3554, "product_id": 0xF55E, "cid": 0x17, "mid": 0x29, "device_type": 2}
@@ -98,6 +99,11 @@ class Backup:
             raise ConfigurationError("O backup nao cobre todos os bancos registrados.")
         if document["after"] and set(map(int, document["after"])) != set(cycle):
             raise ConfigurationError("A configuracao final e o ciclo registrado nao correspondem.")
+        if document.get("operation") == "rgb_only":
+            try:
+                lighting_records(document.get("lighting_scope", "main"))
+            except ValueError as error:
+                raise ConfigurationError(str(error)) from error
         return cls(path, document)
 
     def save(self) -> None:
@@ -177,10 +183,11 @@ def patches(before: Snapshot, after: Snapshot):
     # followed by the independent enable/checksum pair at A7. Keep those
     # boundaries during both updates and recovery.
     sections = ((0x100, before.shortcuts, after.shortcuts, 32),
-                (0, before.config[:0xA0], after.config[:0xA0], 4),
+                (0, before.config[:0x4C], after.config[:0x4C], 4),
+                (0x4C, before.config[0x4C:0x60], after.config[0x4C:0x60], 2),
+                (0x60, before.config[0x60:0xA0], after.config[0x60:0xA0], 4),
                 (0xA0, before.config[0xA0:0xA7], after.config[0xA0:0xA7], 7),
-                (0xA7, before.config[0xA7:0xA9], after.config[0xA7:0xA9], 2),
-                (0xA9, before.config[0xA9:], after.config[0xA9:], 4))
+                (0xA7, before.config[0xA7:], after.config[0xA7:], 2))
     for address, old, new, unit in sections:
         for offset in range(0, len(old), unit):
             a, b = old[offset:offset + unit], new[offset:offset + unit]
@@ -199,7 +206,8 @@ class Programmer:
         self.log = log
         self.last_backup: Backup | None = None
 
-    def _write_snapshot(self, protocol: Protocol, target: Snapshot, *, rgb_only: bool = False) -> None:
+    def _write_snapshot(self, protocol: Protocol, target: Snapshot, *, rgb_only: bool = False,
+                        lighting_scope: str = "main") -> None:
         target.validate()
         protocol.select_profile(target.index)
         # A failed write may leave an invalid key checksum. Recovery must be able
@@ -211,7 +219,8 @@ class Programmer:
             # Even recovery of a color-only operation must not replay old keys
             # or DPI over a setting changed independently after the backup.
             config = bytearray(before.config)
-            config[0xA0:0xA9] = target.config[0xA0:0xA9]
+            for address, length in lighting_records(lighting_scope):
+                config[address:address + length] = target.config[address:address + length]
             target = Snapshot(target.index, bytes(config), before.shortcuts)
             target.validate()
         changes = list(patches(before, target))
@@ -233,7 +242,8 @@ class Programmer:
         for index, target in sorted(backup.snapshots().items(), reverse=True):
             try:
                 with self.connect() as protocol:
-                    self._write_snapshot(protocol, target, rgb_only=backup.document.get("operation") == "rgb_only")
+                    self._write_snapshot(protocol, target, rgb_only=backup.document.get("operation") == "rgb_only",
+                                         lighting_scope=backup.document.get("lighting_scope", "main"))
             except Exception as error:
                 errors.append(f"Banco {index + 1}: {error}")
         try:
@@ -379,15 +389,16 @@ class Programmer:
                     self.log("Falha adicional ao restaurar selecao: " + str(cleanup))
 
     def update_colors(self, click: Callable[[int], None]) -> Backup:
-        """Color the live working banks, preserving every byte outside A0..A8."""
+        """Color both LED groups and disable movement blanking; keep keys/DPI."""
         self._check_interrupted()
         initial, cycle, originals = self._existing_cycle(click)
-        targets = {index: colored_snapshot(originals[index]) for index in cycle}
+        targets = {index: profile_lighting_snapshot(originals[index]) for index in cycle}
         backup = Backup.create(self.directory, self.device, initial)
         self.last_backup = backup
         for original in originals.values():
             backup.add_original(original)
-        backup.phase("prepared", operation="rgb_only", cycle=cycle,
+        backup.phase("prepared", operation="rgb_only", lighting_scope=INDICATOR_SCOPE, cycle=cycle,
+                     visual_color_confirmed=False,
                      after={str(i): _snapshot_json(s) for i, s in targets.items()})
         self.log("Backup antes das cores: " + str(backup.path))
         started = False
@@ -403,7 +414,7 @@ class Programmer:
                     if protocol.read_snapshot() != originals[index]:
                         raise ConfigurationError("O perfil mudou antes da gravacao da cor.")
                     for address, old, new in patches(originals[index], targets[index]):
-                        if (address, len(new)) not in ((0xA0, 7), (0xA7, 2)):
+                        if (address, len(new)) not in lighting_records(INDICATOR_SCOPE):
                             raise ConfigurationError("O plano de cores tentou modificar outra configuracao.")
                         if protocol.read_memory(address, len(old), expected_profile=index) != old:
                             raise ConfigurationError("A iluminacao mudou antes da gravacao.")
@@ -411,6 +422,12 @@ class Programmer:
                         protocol.write_memory(address, new, expected_profile=index)
                     if protocol.read_snapshot() != targets[index]:
                         raise ConfigurationError("A releitura integral do perfil com a nova cor nao confere.")
+                # Immediate readback alone cannot detect a field shared by all
+                # banks: a later bank's write might overwrite an earlier one.
+                for index, live in protocol.read_profiles(cycle).items():
+                    if live != targets[index]:
+                        raise ConfigurationError(f"A iluminacao do banco {index + 1} mudou depois de gravar outro banco. O firmware nao manteve as cores independentes; nao sera informado sucesso.")
+                    self.log(describe_lighting(live))
                 protocol.select_profile(initial)
             backup.phase("programmed")
             self.log("Cores gravadas e relidas. Botoes, atalhos, DPI e demais dados foram preservados.")
@@ -429,7 +446,9 @@ class Programmer:
                     detail += " Falha ao restaurar selecao/registro: " + str(cleanup)
             raise ConfigurationError(f"{error}\n{detail}\nBackup: {backup.path}") from error
 
-    def _verify_cycle_order(self, cycle: list[int], click: Callable[[int], None]) -> None:
+    def _verify_cycle_order(self, cycle: list[int], click: Callable[[int], None], *,
+                            targets: dict[int, Snapshot] | None = None,
+                            observe: Callable[[Snapshot], None] | None = None) -> None:
         with self.connect() as protocol:
             if protocol.current_profile() != cycle[0]:
                 raise ConfigurationError("A verificacao do ciclo deve comecar no primeiro banco.")
@@ -437,6 +456,17 @@ class Programmer:
             after = self._click_and_read(current, click)
             if after != cycle[(position + 1) % len(cycle)]:
                 raise ConfigurationError("O ciclo nao se repetiu. Pressione o botao 7 uma unica vez em cada etapa.")
+            if targets is not None:
+                # Read the bank selected physically; do not select it from the
+                # host first, which could conceal a stale hardware activation.
+                with self.connect() as protocol:
+                    if protocol.current_profile() != after:
+                        raise ConfigurationError("O banco mudou antes da leitura apos o botao 7.")
+                    current_snapshot = protocol.read_snapshot()
+                if observe is not None:
+                    observe(current_snapshot)
+                if current_snapshot != targets[after]:
+                    raise ConfigurationError(f"Os dados do banco {after + 1} nao conferem depois do clique fisico.")
 
     def verify(self, backup: Backup, *, observed_disconnect: bool = False,
                click: Callable[[int], None] | None = None) -> None:
@@ -464,7 +494,17 @@ class Programmer:
         if click is not None:
             failure = None
             try:
-                self._verify_cycle_order(cycle, click)
+                if backup.document.get("operation") == "rgb_only":
+                    backup.document["physical_lighting_reads"] = []
+
+                    def observe(snapshot: Snapshot) -> None:
+                        backup.document["physical_lighting_reads"].append(lighting_status(snapshot))
+                        backup.save()
+                        self.log(describe_lighting(snapshot))
+
+                    self._verify_cycle_order(cycle, click, targets=targets, observe=observe)
+                else:
+                    self._verify_cycle_order(cycle, click)
             except BaseException as error:
                 failure = error
                 backup.phase("verification_failed", last_error=str(error))
@@ -514,12 +554,14 @@ class Programmer:
         for snapshot in current.values():
             recovery.add_original(snapshot)
         recovery.phase("before_restore", restored_from=str(backup.path), damaged_current=damaged,
-                       operation=backup.document.get("operation", "profiles"))
+                       operation=backup.document.get("operation", "profiles"),
+                       lighting_scope=backup.document.get("lighting_scope", "main"))
         self.log("Backup anterior a restauracao: " + str(recovery.path))
         try:
             with self.connect() as protocol:
                 for target in originals.values():
-                    self._write_snapshot(protocol, target, rgb_only=backup.document.get("operation") == "rgb_only")
+                    self._write_snapshot(protocol, target, rgb_only=backup.document.get("operation") == "rgb_only",
+                                         lighting_scope=backup.document.get("lighting_scope", "main"))
                 protocol.select_profile(initial if backup.document.get("operation") == "rgb_only"
                                         else backup.document["initial_profile"])
             backup.phase("restored")

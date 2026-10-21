@@ -1,4 +1,4 @@
-# Redragon Mini Python 0.3
+# Redragon Mini Python 0.4
 
 Configurador para rodar uma vez no **Windows**, usando **Python 3.10 ou superior**. Depois da gravação e dos testes, o objetivo é usar os atalhos armazenados no próprio mouse, sem este programa aberto no Windows ou no Mac.
 
@@ -6,9 +6,9 @@ Não precisa instalar pacotes com `pip`, drivers ou serviços. Não contém um e
 
 ## Adicionar as cores aos perfis que já funcionam
 
-A versão 0.2 foi **testada por você no mouse real**, com os botões 4, 5, 6 e 7 funcionando por cabo, receptor 2,4 GHz e Bluetooth. Para acrescentar a identificação visual, use a nova opção **5 — Aplicar SOMENTE CORES aos perfis existentes**:
+A versão 0.2 foi **testada por você no mouse real**, com os botões 4, 5, 6 e 7 funcionando por cabo, receptor 2,4 GHz e Bluetooth. A versão 0.3 gravou e releu as cores, mas a luz permaneceu vermelha e apagava ao mover no modo sem fio. A versão 0.4 amplia o ajuste para os dois grupos de iluminação e desativa esse apagamento. Use **5 — Ajustar SOMENTE ILUMINAÇÃO**:
 
-| Perfil identificado pelos atalhos atuais | Iluminação principal fixa |
+| Perfil identificado pelos atalhos atuais | Faixa RGB e indicador de DPI, fixos |
 |---|---|
 | macOS | Rosa/magenta — R:255 G:0 B:255 (`#FF00FF`) |
 | Windows | Vermelha — R:255 G:0 B:0 (`#FF0000`) |
@@ -16,13 +16,13 @@ A versão 0.2 foi **testada por você no mouse real**, com os botões 4, 5, 6 e 
 1. Extraia este ZIP em uma pasta nova e abra **Iniciar.cmd**. Use o mesmo Python já instalado.
 2. Conecte o mouse pelo **cabo USB de dados** e feche o aplicativo original da Redragon.
 3. Escolha **5**. Pressione o botão 7 **uma vez por etapa**, somente quando solicitado, depois Enter. O programa reconhece cada perfil pelos atalhos existentes; não presume o sistema pelo número do banco.
-4. Ele salva um backup novo e grava somente os registros da iluminação principal, com efeito fixo e brilho máximo. Não é necessário copiar o backup da versão 0.2 para esta pasta.
-5. Siga a etapa de desconectar, desligar por cinco segundos e reconectar. O programa relê os perfis e pede novos cliques do botão 7 para conferir o ciclo.
-6. Feche o programa e confira visualmente a mudança: **macOS rosa ↔ Windows vermelho**. Teste as cores também pelo receptor e Bluetooth.
+4. Ele salva um backup novo e configura **a faixa RGB e todas as cores do indicador de DPI**, com efeito fixo e brilho máximo, além de desativar **Lights off when moving** em todos os bancos. Os valores de DPI não são alterados. Não é necessário copiar backups antigos para esta pasta.
+5. Siga a etapa de desconectar, desligar por cinco segundos e reconectar. O programa relê todos os bancos e pede novos cliques do botão 7. Depois de cada clique, confere o perfil selecionado fisicamente, sem selecioná-lo primeiro pelo computador, e mostra as duas cores e a opção de movimento lidas.
+6. Com a conexão do configurador fechada, pressione o botão 7 e confira visualmente **macOS rosa ↔ Windows vermelho**. Responda `s` se alternou ou `n` se não alternou. Os dados lidos e a confirmação visual são registrados separadamente: memória correta não comprova, sozinha, que o firmware exibiu as cores. Teste também pelo receptor e Bluetooth.
 
-**A opção 5 não regrava botões, atalhos ou DPI.** Conserva também macros, indicadores de DPI e preferências de economia de energia. O perfil que estava ativo no início da operação é selecionado novamente ao final. A verificação após reconexão também devolve a seleção que encontrou. O efeito é de cor fixa; o desligamento das luzes por repouso ou movimento continua seguindo as preferências existentes do mouse.
+**A opção 5 não regrava botões, atalhos ou valores de DPI.** Conserva macros, quantidade e índice das etapas DPI e tempo de repouso. A cor do indicador, seu efeito e seu brilho fazem parte desta atualização; a preferência de apagar ao mover é explicitamente desativada. O perfil que estava ativo no início da operação é selecionado novamente ao final. A verificação após reconexão também devolve a seleção que encontrou. O efeito é fixo, sem respiração ou animação; o desligamento por repouso continua seguindo o tempo existente do mouse.
 
-Os testes de software cobrem a nova gravação e a recuperação. A exibição física das cores novas ainda precisa da sua conferência; o teste bem-sucedido da versão 0.2 comprova os atalhos e a troca de perfis, não esta atualização RGB.
+Os testes de software cobrem a nova gravação e a recuperação. As capturas originais tinham o indicador da primeira etapa DPI vermelho nos dois perfis; a versão 0.3 conservava essa tabela e a opção de apagar ao mover. A versão 0.4 configura esses registros também, mas a exibição física precisa da sua conferência. Se os bytes estiverem corretos e a luz ainda não alternar, responda `n` e guarde o log dos bancos mostrado pelo programa; isso aponta para uma diferença na ativação da iluminação pelo firmware, não para uma confirmação visual bem-sucedida.
 
 ## Os dois perfis
 
@@ -72,7 +72,7 @@ A etiqueta identifica um M719RGB-PRO, versão V2, com cabo, 2,4 GHz e Bluetooth.
 
 O nome comercial não basta para assumir que revisões diferentes usam o mesmo protocolo. Se seu mouse atual apresentar outros identificadores, a opção 2 mostra os candidatos em modo de leitura, e a gravação é recusada. Não são tentados comandos de outros modelos por aproximação.
 
-As capturas comprovam gravações no modo com cabo. Depois de usar a versão 0.2, você confirmou o funcionamento real dos botões e da troca de perfis por cabo, receptor e Bluetooth. A nova iluminação ainda requer conferência visual nesses modos. Dados iguais depois de uma releitura na mesma sessão, sozinhos, não comprovam persistência após desligar.
+As capturas comprovam gravações no modo com cabo. Depois de usar a versão 0.2, você confirmou o funcionamento real dos botões e da troca de perfis por cabo, receptor e Bluetooth. Na versão 0.3, você confirmou a persistência dos bytes das cores após reconexão, mas relatou ausência da alternância visual. A iluminação da versão 0.4 ainda requer conferência nesses modos.
 
 ## Backup, cancelamento e restauração
 
@@ -80,7 +80,7 @@ Os backups ficam na pasta `backups` ao lado dos scripts. Se ela não permitir es
 
 Cada arquivo JSON guarda os bytes originais, checksums, bancos observados e estado do procedimento. Guarde o primeiro backup de uma configuração. As regiões incluídas são `0x0000–0x00BF` e `0x0100–0x02FF`; não é uma cópia do firmware ou da memória inteira.
 
-Um backup criado pela opção 5 recebe `operation: "rgb_only"`. Tanto a recuperação automática quanto **4 — Restaurar backup**, ao usar esse arquivo, restauram somente a iluminação principal anterior. Outras configurações alteradas posteriormente não são substituídas por esses backups de cores. Backups antigos da configuração completa continuam restaurando a configuração completa.
+Um backup criado pela opção 5 recebe `operation: "rgb_only"` e `lighting_scope: "main_dpi_movement"`. Tanto a recuperação automática quanto **4 — Restaurar backup**, ao usar esse arquivo, restauram somente os registros de iluminação modificados: faixa RGB, cores e efeito/brilho do indicador, e opção de apagar ao mover. Outras configurações alteradas posteriormente não são substituídas. Backups RGB da versão 0.3, sem esse campo de escopo, continuam restaurando somente a faixa principal. Backups antigos da configuração completa continuam restaurando a configuração completa.
 
 **Ctrl+C durante a configuração** tenta restaurar os dados originais. Uma desconexão pode impedir a restauração automática; reconecte pelo cabo e escolha **4 — Restaurar backup**. A restauração consegue reparar registros de botão deixados com checksum inválido por uma gravação interrompida, usando um backup válido.
 
