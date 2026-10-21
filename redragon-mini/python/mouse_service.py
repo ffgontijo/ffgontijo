@@ -1,0 +1,410 @@
+"""One-time onboard configuration. No input hooks or resident process."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import uuid
+from datetime import datetime, timezone
+from typing import Callable, ContextManager
+
+from mouse_protocol import Protocol, Snapshot, key_address, key_record, shortcut, shortcut_address
+
+FORMAT = "redragon-mini-python/1"
+EXPECTED_DEVICE = {"vendor_id": 0x3554, "product_id": 0xF55E, "cid": 0x17, "mid": 0x29, "device_type": 2}
+
+
+class ConfigurationError(RuntimeError):
+    pass
+
+
+def _snapshot_json(snapshot: Snapshot, *, validate: bool = True) -> dict:
+    if validate:
+        snapshot.validate()
+    return {"index": snapshot.index, "config": snapshot.config.hex(), "shortcuts": snapshot.shortcuts.hex(),
+            "sha256": hashlib.sha256(snapshot.config + snapshot.shortcuts).hexdigest()}
+
+
+def _snapshot_from_json(value: dict) -> Snapshot:
+    if not isinstance(value, dict) or type(value.get("index")) is not int or value["index"] not in range(4):
+        raise ConfigurationError("Indice de perfil invalido no backup.")
+    try:
+        result = Snapshot(value["index"], bytes.fromhex(value["config"]), bytes.fromhex(value["shortcuts"]))
+        result.validate()
+    except Exception as error:
+        raise ConfigurationError("Backup incompleto ou com dados invalidos.") from error
+    digest = hashlib.sha256(result.config + result.shortcuts).hexdigest()
+    if digest != value.get("sha256"):
+        raise ConfigurationError("O checksum do backup nao confere. Nao sera gravado no mouse.")
+    return result
+
+
+class Backup:
+    """Durable journal: each original snapshot is saved before its first mutation."""
+
+    def __init__(self, path: Path, document: dict):
+        self.path = Path(path)
+        self.document = document
+
+    @classmethod
+    def create(cls, directory: Path, device: dict, initial_profile: int) -> "Backup":
+        if any(device.get(name) != value for name, value in EXPECTED_DEVICE.items()):
+            raise ConfigurationError("Gravacao permitida somente no mouse cabeado identificado pelas capturas.")
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        name = "mouse-" + datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8] + ".json"
+        result = cls(directory / name, {
+            "format": FORMAT, "created_utc": datetime.now(timezone.utc).isoformat(), "device": dict(device),
+            "initial_profile": initial_profile, "phase": "prepared", "originals": {}, "after": {},
+            "prepared_banks": [], "cycle": [], "history": [], "usb_reconnect_verified": False,
+        })
+        result.save()
+        return result
+
+    @classmethod
+    def load(cls, path: Path) -> "Backup":
+        path = Path(path)
+        if path.stat().st_size > 256 * 1024:
+            raise ConfigurationError("Arquivo de backup grande demais.")
+        with path.open(encoding="utf-8") as file:
+            document = json.load(file)
+        if not isinstance(document, dict) or document.get("format") != FORMAT:
+            raise ConfigurationError("Este arquivo nao e um backup da versao Python.")
+        device = document.get("device", {})
+        if not isinstance(device, dict) or any(type(device.get(k)) is not int or device[k] != v for k, v in EXPECTED_DEVICE.items()):
+            raise ConfigurationError("O backup pertence a outro protocolo ou modelo.")
+        if type(document.get("initial_profile")) is not int or document["initial_profile"] not in range(4):
+            raise ConfigurationError("Perfil inicial invalido no backup.")
+        for field in ("originals", "after"):
+            values = document.get(field)
+            if not isinstance(values, dict) or len(values) > 4:
+                raise ConfigurationError("Lista de perfis invalida no backup.")
+            for name, value in values.items():
+                snapshot = _snapshot_from_json(value)
+                if name != str(snapshot.index):
+                    raise ConfigurationError("Indices fora de ordem no backup.")
+        if not document["originals"]:
+            raise ConfigurationError("O backup nao possui perfis originais.")
+        cycle = document.get("cycle", [])
+        if not isinstance(cycle, list) or any(type(i) is not int or i not in range(4) for i in cycle) or len(set(cycle)) != len(cycle):
+            raise ConfigurationError("Ciclo invalido no backup.")
+        original_indices = {int(i) for i in document["originals"]}
+        prepared = document.get("prepared_banks", [])
+        if (not isinstance(prepared, list) or any(type(i) is not int or i not in original_indices for i in prepared)
+                or len(set(prepared)) != len(prepared) or not set(cycle).issubset(original_indices)
+                or not {int(i) for i in document["after"]}.issubset(original_indices)):
+            raise ConfigurationError("O backup nao cobre todos os bancos registrados.")
+        if document["after"] and set(map(int, document["after"])) != set(cycle):
+            raise ConfigurationError("A configuracao final e o ciclo registrado nao correspondem.")
+        return cls(path, document)
+
+    def save(self) -> None:
+        data = json.dumps(self.document, indent=2, ensure_ascii=False).encode("utf-8")
+        temporary = self.path.with_name(self.path.name + "." + uuid.uuid4().hex + ".tmp")
+        try:
+            with temporary.open("xb") as file:
+                file.write(data)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
+    def add_original(self, snapshot: Snapshot) -> None:
+        values = self.document["originals"]
+        key = str(snapshot.index)
+        if key not in values:
+            values[key] = _snapshot_json(snapshot)
+            self.save()
+
+    def snapshots(self, field: str = "originals") -> dict[int, Snapshot]:
+        return {int(key): _snapshot_from_json(value) for key, value in self.document[field].items()}
+
+    def phase(self, value: str, **fields) -> None:
+        self.document.update(fields)
+        self.document["phase"] = value
+        self.save()
+
+
+def prepare_profiles(originals: dict[int, Snapshot], cycle: list[int]) -> dict[int, Snapshot]:
+    """Two logical configurations, repeated in the actual measured cycle order."""
+    if len(cycle) not in (2, 4) or len(set(cycle)) != len(cycle) or cycle[0] != 0:
+        raise ConfigurationError("O ciclo observado nao permite alternar estritamente dois perfis.")
+    if not {0, 1, *cycle}.issubset(originals):
+        raise ConfigurationError("Faltam backups dos perfis de base ou dos bancos observados.")
+    result = {}
+    for position, index in enumerate(cycle):
+        source = originals[position % 2]
+        destination = originals[index]
+        source.validate()
+        destination.validate()
+        config, keys = bytearray(source.config), bytearray(source.shortcuts)
+        # Preserve bytes whose role is not established by the original parser.
+        config[0x54:0x60] = destination.config[0x54:0x60]
+        config[0xBB:0xC0] = destination.config[0xBB:0xC0]
+        count, active = config[2], config[4]
+        if (sum(config[2:4]) & 0xFF) != 0x55 or (sum(config[4:6]) & 0xFF) != 0x55 or not 1 <= count <= 8 or active >= count:
+            raise ConfigurationError("Quantidade ou indice de etapas DPI invalido. Nao sera aplicada uma codificacao por aproximacao.")
+        # Sensor 8960 / captured model: 0x14 == 2000 DPI. Do not copy the
+        # captured macOS profile's 3500 DPI into the new configuration.
+        for stage in range(count):
+            config[0x0C + stage * 4:0x10 + stage * 4] = bytes.fromhex("14 14 00 2d")
+        modifier = 8 if position % 2 == 0 else 1
+        for button, mod, usage in ((4, modifier, 0x19), (5, modifier, 6),
+                                   (6, 8 if position % 2 == 0 else 0, 0x1E if position % 2 == 0 else 0x46)):
+            encoded = shortcut(mod, usage)
+            address = shortcut_address(button) - 0x100
+            keys[address:address + len(encoded)] = encoded
+            address = key_address(button)
+            config[address:address + 4] = key_record(5)
+        config[key_address(7):key_address(7) + 4] = key_record(9)
+        if index != source.index and any(config[0x60 + i * 4] == 6 for i in range(16)):
+            raise ConfigurationError("Um outro botao usa macro longa. A copia de bancos nao pode replicar essas macros nesta versao.")
+        target = Snapshot(index, bytes(config), bytes(keys))
+        target.validate()
+        result[index] = target
+    return result
+
+
+def patches(before: Snapshot, after: Snapshot):
+    """Write shortcut records before binding keys; preserve every unchanged byte."""
+    if before.index != after.index:
+        raise ConfigurationError("Bancos diferentes em um plano de gravacao.")
+    for address, old, new, unit in ((0x100, before.shortcuts, after.shortcuts, 32), (0, before.config, after.config, 4)):
+        for offset in range(0, len(old), unit):
+            a, b = old[offset:offset + unit], new[offset:offset + unit]
+            if a != b:
+                yield address + offset, a, b
+
+
+class Programmer:
+    """The connector must verify identity and close PC-driver mode at each exit."""
+
+    def __init__(self, connect: Callable[[], ContextManager[Protocol]], directory: Path,
+                 device: dict, log: Callable[[str], None] = print):
+        self.connect = connect
+        self.directory = Path(directory)
+        self.device = dict(device)
+        self.log = log
+        self.last_backup: Backup | None = None
+
+    def _write_snapshot(self, protocol: Protocol, target: Snapshot) -> None:
+        target.validate()
+        protocol.select_profile(target.index)
+        # A failed write may leave an invalid key checksum. Recovery must be able
+        # to read that raw preimage and repair it from a known-good snapshot.
+        before = Snapshot(target.index,
+                          protocol.read_memory(0, 0xC0, expected_profile=target.index),
+                          protocol.read_memory(0x100, 0x200, expected_profile=target.index))
+        changes = list(patches(before, target))
+        # Check all preimages before writing; every write also checks bank identity.
+        for address, old, _ in changes:
+            if protocol.read_memory(address, len(old), expected_profile=target.index) != old:
+                raise ConfigurationError("O perfil mudou durante a preparacao da gravacao.")
+        for address, _, new in changes:
+            self.log(f"  Banco {target.index + 1}: gravando 0x{address:04X}")
+            protocol.write_memory(address, new, expected_profile=target.index)
+        readback = protocol.read_snapshot()
+        if readback.config != target.config or readback.shortcuts != target.shortcuts:
+            raise ConfigurationError("A verificacao integral do banco gravado nao confere.")
+
+    def _rollback(self, backup: Backup) -> list[str]:
+        errors = []
+        self.log("Restaurando os dados originais dos bancos incluídos no backup...")
+        # Reopen for each bank: one failed connection must not skip other banks.
+        for index, target in sorted(backup.snapshots().items(), reverse=True):
+            try:
+                with self.connect() as protocol:
+                    self._write_snapshot(protocol, target)
+            except Exception as error:
+                errors.append(f"Banco {index + 1}: {error}")
+        try:
+            with self.connect() as protocol:
+                protocol.select_profile(backup.document["initial_profile"])
+        except Exception as error:
+            errors.append("Selecao inicial: " + str(error))
+        try:
+            backup.phase("recovery_incomplete" if errors else "restored", recovery_errors=errors)
+        except Exception as error:
+            errors.append("Registro do backup: " + str(error))
+        return errors
+
+    def _click_and_read(self, current: int, click: Callable[[int], None]) -> int:
+        # The context closes both HID handle and PC-driver mode BEFORE the click.
+        click(current)
+        with self.connect() as protocol:
+            return protocol.current_profile()
+
+    def _probe(self, backup: Backup, click: Callable[[int], None]) -> list[int]:
+        cycle = []
+        current = 0
+        with self.connect() as protocol:
+            protocol.select_profile(0)
+        for _ in range(4):
+            with self.connect() as protocol:
+                if protocol.current_profile() != current:
+                    raise ConfigurationError("O banco ativo mudou fora do clique solicitado.")
+                live = protocol.read_snapshot()
+                backup.add_original(live)
+                cycle.append(current)
+                if current not in backup.document["prepared_banks"]:
+                    backup.document["prepared_banks"].append(current)
+                backup.phase("probing")  # durable BEFORE writing even four bytes
+                self.log(f"Testando funcao interna no banco {current + 1}.")
+                address = key_address(7)
+                if live.config[address:address + 4] != key_record(9):
+                    protocol.write_memory(address, key_record(9), expected_profile=current)
+            after = self._click_and_read(current, click)
+            backup.document["history"].append([current, after])
+            backup.save()
+            if after == current:
+                raise ConfigurationError("O botao 7 nao mudou o perfil interno. A gravacao final foi cancelada; a funcao pode nao existir neste firmware.")
+            if after == 0:
+                if len(cycle) not in (2, 4):
+                    raise ConfigurationError("O ciclo observado tem numero impar de bancos e nao alterna duas configuracoes a cada clique.")
+                backup.phase("cycle_observed", cycle=cycle)
+                return cycle
+            if after in cycle:
+                raise ConfigurationError("O botao retornou a um banco intermediario; nao foi observado um ciclo completo.")
+            current = after
+        raise ConfigurationError("Nao foi possivel fechar o ciclo em ate quatro bancos.")
+
+    def configure(self, click: Callable[[int], None]) -> Backup:
+        for path in self.directory.glob("*.json"):
+            try:
+                previous = Backup.load(path)
+            except (OSError, ValueError, ConfigurationError):
+                continue
+            if previous.document.get("phase") in {"probing", "cycle_observed", "applying", "recovery_incomplete", "before_restore", "restore_incomplete"}:
+                raise ConfigurationError("Ha um procedimento interrompido. Restaure esse backup antes de configurar novamente: " + str(path))
+        # No configuration bytes are written until complete originals are durable.
+        with self.connect() as protocol:
+            initial = protocol.current_profile()
+            bases = protocol.read_profiles([0, 1])
+        backup = Backup.create(self.directory, self.device, initial)
+        self.last_backup = backup
+        for snapshot in bases.values():
+            backup.add_original(snapshot)
+        self.log("Backup: " + str(backup.path))
+        try:
+            cycle = self._probe(backup, click)
+            targets = prepare_profiles(backup.snapshots(), cycle)
+            # Repeat the cycle once, with no HID handle held, before bulk writes.
+            self._verify_cycle_order(cycle, click)
+            # Reject any unrelated setting change since the original backup.
+            with self.connect() as protocol:
+                for index in cycle:
+                    protocol.select_profile(index)
+                    live, original = protocol.read_snapshot(), backup.snapshots()[index]
+                    expected = bytearray(original.config)
+                    expected[key_address(7):key_address(7) + 4] = key_record(9)
+                    if live.config != bytes(expected) or live.shortcuts != original.shortcuts:
+                        raise ConfigurationError("Outras configuracoes mudaram durante o teste. Nao sera aplicado um plano obsoleto.")
+            backup.phase("applying", after={str(i): _snapshot_json(s) for i, s in targets.items()})
+            with self.connect() as protocol:
+                for index in cycle:
+                    self.log(f"Configurando banco {index + 1}: {'macOS' if cycle.index(index) % 2 == 0 else 'Windows'}")
+                    self._write_snapshot(protocol, targets[index])
+                protocol.select_profile(0)
+            backup.phase("programmed")
+            self.log("Dados gravados e relidos. A persistencia apos desligar ainda precisa da verificacao seguinte.")
+            return backup
+        except BaseException as error:
+            self.log("Operacao interrompida: " + str(error))
+            recovery = self._rollback(backup)
+            detail = "Restauracao verificada." if not recovery else "Restauracao incompleta: " + "; ".join(recovery)
+            raise ConfigurationError(f"{error}\n{detail}\nBackup: {backup.path}") from error
+
+    def _verify_cycle_order(self, cycle: list[int], click: Callable[[int], None]) -> None:
+        with self.connect() as protocol:
+            if protocol.current_profile() != cycle[0]:
+                raise ConfigurationError("A verificacao do ciclo deve comecar no primeiro banco.")
+        for position, current in enumerate(cycle):
+            after = self._click_and_read(current, click)
+            if after != cycle[(position + 1) % len(cycle)]:
+                raise ConfigurationError("O ciclo nao se repetiu. Pressione o botao 7 uma unica vez em cada etapa.")
+
+    def verify(self, backup: Backup, *, observed_disconnect: bool = False,
+               click: Callable[[int], None] | None = None) -> None:
+        targets = backup.snapshots("after")
+        cycle = backup.document.get("cycle", [])
+        if not targets or len(cycle) not in (2, 4) or set(targets) != set(cycle):
+            raise ConfigurationError("O backup nao registra uma configuracao final completa.")
+        backup.phase("verifying", usb_reconnect_verified=False, hardware_cycle_reverified=False)
+        with self.connect() as protocol:
+            initial = protocol.current_profile()
+            try:
+                for index, target in targets.items():
+                    protocol.select_profile(index)
+                    current = protocol.read_snapshot()
+                    if current.config != target.config or current.shortcuts != target.shortcuts:
+                        backup.phase("verification_failed", last_error=f"Dados divergentes no banco {index + 1}")
+                        raise ConfigurationError(f"Os dados do banco {index + 1} nao persistiram ou foram alterados.")
+                protocol.select_profile(cycle[0] if click is not None else initial)
+            except BaseException as error:
+                try:
+                    protocol.select_profile(initial)
+                except Exception as cleanup:
+                    self.log("Falha adicional ao restaurar selecao: " + str(cleanup))
+                raise
+        if click is not None:
+            try:
+                self._verify_cycle_order(cycle, click)
+            except BaseException as error:
+                backup.phase("verification_failed", last_error=str(error))
+                raise
+        backup.phase("reconnect_verified" if observed_disconnect else "verified_in_session",
+                     usb_reconnect_verified=bool(observed_disconnect), hardware_cycle_reverified=click is not None)
+        self.log("Dados conferidos apos desconexao observada." if observed_disconnect else "Dados conferidos nesta sessao; isso ainda nao confirma desligamento.")
+
+    def restore(self, backup: Backup) -> Backup:
+        originals = backup.snapshots()
+        current, damaged = {}, {}
+        with self.connect() as protocol:
+            initial = protocol.current_profile()
+            failure = None
+            try:
+                for index in sorted(originals):
+                    protocol.select_profile(index)
+                    raw = Snapshot(index, protocol.read_memory(0, 0xC0, expected_profile=index),
+                                   protocol.read_memory(0x100, 0x200, expected_profile=index))
+                    try:
+                        raw.validate()
+                    except Exception:
+                        damaged[str(index)] = _snapshot_json(raw, validate=False)
+                    else:
+                        current[index] = raw
+            except BaseException as error:
+                failure = error
+                raise
+            finally:
+                try:
+                    protocol.select_profile(initial)
+                except Exception as cleanup:
+                    if failure is None:
+                        raise
+                    self.log("Falha adicional ao restaurar selecao: " + str(cleanup))
+        recovery = Backup.create(self.directory, self.device, initial)
+        for snapshot in current.values():
+            recovery.add_original(snapshot)
+        recovery.phase("before_restore", restored_from=str(backup.path), damaged_current=damaged)
+        self.log("Backup anterior a restauracao: " + str(recovery.path))
+        try:
+            with self.connect() as protocol:
+                for target in originals.values():
+                    self._write_snapshot(protocol, target)
+                protocol.select_profile(backup.document["initial_profile"])
+            backup.phase("restored")
+            recovery.phase("restore_completed")
+            return recovery
+        except BaseException as error:
+            if damaged:
+                # Never reintroduce known-corrupt key records as a rollback target.
+                message = "O estado anterior ja tinha registros invalidos. Reaplique o backup original para concluir a reparacao: " + str(backup.path)
+                backup.phase("restore_incomplete", last_error=str(error))
+            else:
+                problems = self._rollback(recovery)
+                message = "Estado anterior recuperado." if not problems else "Recuperacao incompleta: " + "; ".join(problems)
+            raise ConfigurationError(f"A restauracao falhou: {error}\n{message}\nRegistro anterior: {recovery.path}") from error

@@ -38,7 +38,7 @@ Operações observadas:
 | `0A` | notificação espontânea após troca de perfil; não é ACK ao comando `0F` |
 | `0E` | ler índice do perfil atual; pedido sem dados; resposta tamanho1/dado índice |
 | `0F` | selecionar índice do perfil; tamanho1/dado índice, ACK igual ao pedido |
-| `12` | versão de firmware; resposta `04 01` significa v1.04 segundo engenharia reversa do aplicativo; **não** informa quantidade de perfis |
+| `12` | versão de firmware; resposta `04 01` significa v4.01 segundo engenharia reversa do aplicativo; **não** informa quantidade de perfis |
 
 ACKs para gravar e selecionar perfil levam aproximadamente 80ms nas capturas. Leituras comuns levam aproximadamente 1ms. O programa usa limite de 2000ms e não repete automaticamente comandos de gravação que expirarem.
 

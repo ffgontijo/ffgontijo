@@ -1,0 +1,25 @@
+Redragon Mini Python 0.2 - validacao de software
+
+67 testes passaram:
+- 21 de protocolo e codificacao, incluindo frames capturados.
+- 10 do transporte HID com API nativa simulada.
+- 27 de planejamento, configuracao, backup e recuperacao.
+- 9 do assistente/conexao e observacao de reconexao.
+
+Executado com Python 3.12 no ambiente Linux, sem dispositivo USB real.
+Comando, na pasta do configurador:
+  python -m unittest discover -s tests -v
+
+Arquivos .py tambem compilados pelo parser Python sem erros.
+Ajuda --help funciona sem carregar DLL do Windows.
+Execucao USB fora do Windows e recusada antes de acessar hardware.
+
+Ainda nao validado no computador do usuario:
+- comunicacao Win32/HID com o mouse real;
+- suporte do firmware ao botao 7;
+- retencao apos desligar e atalhos em cada sistema;
+- compartilhamento de perfis com receptor/Bluetooth.
+
+O assistente fecha sua conexao entre cliques, testa a troca fisica antes
+  da gravacao final e confere os dados apos desconexao/reconexao observada.
+Nenhum teste automatizado equivale a comprovar esse comportamento fisico.

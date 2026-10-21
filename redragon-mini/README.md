@@ -1,29 +1,36 @@
-# Redragon Mini — M719-WL
+# Redragon Mini — Python 0.2
 
-Aplicativo portátil experimental para Windows 10/11, com .NET Framework 4.8.
+Configurador de uso único para Windows. Os atalhos são gravados no mouse; não é instalado um remapeador ou serviço em segundo plano.
 
-## Download direto
+## Download
 
-[**Baixar RedragonMini-portatil-v0.1.zip**](https://github.com/ffgontijo/ffgontijo/raw/refs/heads/codex/redragon-mini-v0.1/redragon-mini/RedragonMini-portatil-v0.1.zip)
+[**Baixar RedragonMini-Python-v0.2.zip**](https://github.com/ffgontijo/ffgontijo/raw/refs/heads/codex/redragon-mini-v0.1/redragon-mini/RedragonMini-Python-v0.2.zip)
 
-Extraia o ZIP e abra `RedragonMini.exe`. Não é necessário compilar, instalar o aplicativo original, Python ou um driver adicional.
+Instale Python 3.10 ou superior para Windows, extraia o ZIP inteiro e abra **Iniciar.cmd**. Não precisa de `pip`, EXE próprio, driver adicional ou administrador. Escolha **1 — Configurar os dois perfis** e siga os cliques do teste do botão 7.
 
-## Configuração
+| Botão | macOS | Windows |
+|---|---|---|
+| 4 — colar | Command+V | Ctrl+V |
+| 5 — copiar | Command+C | Ctrl+C |
+| 6 — captura | Command+1 | Print Screen |
+| 7 | Alternar a configuração interna | Alternar a configuração interna |
 
-- Perfil 1 (macOS): botão 6 = Command+1.
-- Perfil 2 (Windows): botão 6 = Print Screen.
-- Botão 5 configurável, com opção de preservar a programação atual.
-- Mantém o DPI e a iluminação existentes nos perfis de base.
-- Salva backup antes de alterar configurações e verifica os dados por releitura.
+DPI: **2000 em todas as etapas habilitadas**; cores preservadas.
 
-**A troca pelo botão 7 é experimental.** A função foi encontrada no software original, mas seu funcionamento neste firmware ainda precisa de teste físico. Quando habilitada, o Mini prepara quatro posições como macOS → Windows → macOS → Windows, para alternar entre duas configurações caso o firmware ofereça essa função. Isso substitui as posições 3 e 4; o backup permite restaurá-las.
+## Procedimento
 
-O executável foi compilado e 109 verificações automáticas de protocolo, planejamento e backup passaram. Ainda não houve teste no Windows nem no mouse físico. A gravação verificada não comprova persistência após desligar ou suporte à ação interna de troca.
+O assistente confirma a identificação USB, salva backup antes de alterar qualquer banco e testa a troca física com a conexão de configuração fechada entre cliques. Só grava os atalhos finais depois de medir e repetir um ciclo válido.
 
-Consulte o [guia completo](LEIA-ME.md) antes do primeiro teste. Relatórios de engenharia reversa e limites estão em [docs](docs/VALIDACAO.md).
+Se o mouse percorrer quatro bancos, o assistente os organiza como macOS/Windows/macOS/Windows na ordem observada. Se a ação de troca não funcionar, ele para e tenta restaurar os originais. O código genérico do aplicativo original não é tratado como comprovação de suporte no firmware.
 
-## Código e compilação
+A gravação é feita pelo cabo. Ao final, o assistente observa a desconexão/reconexão e verifica novamente memória e ciclo. O desligamento efetivo e os testes de teclas no Mac, no Windows e pelos modos receptor/Bluetooth ainda precisam do procedimento no hardware. Nenhuma gravação ou teste físico foi feito no ambiente de desenvolvimento.
 
-O código está em `src`; `build.cmd` usa o compilador do .NET Framework do Windows e gera `dist/RedragonMini.exe`. O ZIP contém o programa compilado e o código-fonte. As DLLs, instaladores e firmware proprietários usados como material de análise não fazem parte desta distribuição.
+## Guia, revisão e código
 
-A cópia foi publicada em uma branch separada deste repositório. A branch principal e a página do perfil permanecem inalteradas.
+- [Guia completo](python/LEIA-ME.md)
+- [Revisão do código e das evidências](python/docs/REVISAO.md)
+- [Código Python e testes](python)
+
+A lista de modelos autorizados é baseada nas capturas fornecidas: 3554:F55E, CID17/MID29 no cabo. A foto M719RGB-PRO V2 não substitui a identificação real; outros IDs são mostrados somente para diagnóstico e não recebem comandos de gravação.
+
+Os arquivos do aplicativo C# 0.1 permanecem no histórico desta branch. O download recomendado acima contém somente a versão Python. A branch principal e a página do perfil não são alteradas.
