@@ -8,16 +8,28 @@ LED_ADDRESS = 0xA0
 LED_ENABLE_ADDRESS = 0xA7
 MAIN_SCOPE = "main"
 INDICATOR_SCOPE = "main_dpi_movement"
+DPI_INDICATOR_SCOPE = "dpi_indicator"
+DPI_INDICATOR_SETTINGS = {"macos": (2000, (255, 0, 0)), "windows": (2100, (0, 0, 255))}
 
 
-def lighting_records(scope: str = MAIN_SCOPE) -> tuple[tuple[int, int], ...]:
-    """Only known LED records may be restored by a lighting-only backup."""
+def lighting_records(scope: str = MAIN_SCOPE, *, dpi_count: int | None = None) -> tuple[tuple[int, int], ...]:
+    """Enumerate known records; DPI recovery uses the count in its original.
+
+    With no count, the DPI scope's complete address envelope is returned only
+    for scope validation. A write/restore supplies its snapshot's real count.
+    """
     main = ((0xA0, 7), (0xA7, 2))
     if scope == MAIN_SCOPE:
         return main  # version 0.3 backups keep their original scope
     if scope == INDICATOR_SCOPE:
         return (tuple((0x2C + 4 * i, 4) for i in range(8))
                 + ((0x4C, 2), (0x4E, 2), (0x52, 2)) + main + ((0xB3, 2),))
+    if scope == DPI_INDICATOR_SCOPE:
+        count = 8 if dpi_count is None else dpi_count
+        if type(count) is not int or not 1 <= count <= 8:
+            raise ValueError("Quantidade de etapas DPI invalida para restauracao.")
+        return (tuple((0x0C + 4 * i, 4) for i in range(count))
+                + lighting_records(INDICATOR_SCOPE))
     raise ValueError("Escopo de iluminacao desconhecido no backup.")
 
 
@@ -79,23 +91,70 @@ def profile_lighting_snapshot(snapshot: Snapshot) -> Snapshot:
     return Snapshot(snapshot.index, bytes(config), snapshot.shortcuts)
 
 
+def enabled_dpi_count(snapshot: Snapshot) -> int:
+    """Validate the bank's enabled stages before accepting a DPI restore base."""
+    snapshot.validate()
+    config = snapshot.config
+    count, active = config[2], config[4]
+    if ((sum(config[2:4]) & 0xFF) != 0x55 or (sum(config[4:6]) & 0xFF) != 0x55
+            or not 1 <= count <= 8 or active >= count):
+        raise ValueError(f"Quantidade ou indice de etapas DPI invalido no banco {snapshot.index + 1}.")
+    for stage in range(count):
+        at = 0x0C + 4 * stage
+        if sum(config[at:at + 4]) & 0xFF != 0x55:
+            raise ValueError(f"Registro DPI invalido na etapa {stage + 1} do banco {snapshot.index + 1}.")
+    return count
+
+
+def dpi_indicator_snapshot(snapshot: Snapshot) -> Snapshot:
+    """Main lights off; only the steady DPI indicator identifies the profile."""
+    kind = profile_kind(snapshot)
+    count = enabled_dpi_count(snapshot)
+    dpi, color = DPI_INDICATOR_SETTINGS[kind]
+    config = bytearray(snapshot.config)
+    # Sensor 8960: the supplied header confirms 2000=14h and 2100=15h.
+    # X and Y use the same step; extension is zero for these two values.
+    value = dpi // 100
+    body = bytes((value, value, 0))
+    for stage in range(count):
+        at = 0x0C + 4 * stage
+        config[at:at + 4] = body + bytes((checksum(body),))
+    rgb = bytes(color)
+    for stage in range(8):
+        at = 0x2C + 4 * stage
+        config[at:at + 4] = rgb + bytes((checksum(rgb),))
+    config[0xA0] = 0  # same OFF representation as the original application's UI
+    config[0xA6] = checksum(bytes(config[0xA0:0xA6]))
+    for at, value in ((0x4C, 1), (0x4E, 255), (0x52, 1), (0xA7, 0), (0xB3, 0)):
+        config[at:at + 2] = bytes((value, checksum(bytes((value,)))))
+    return Snapshot(snapshot.index, bytes(config), snapshot.shortcuts)
+
+
 def lighting_status(snapshot: Snapshot) -> dict:
     """A diagnostic reading; stored bytes do not establish a visible color."""
     kind = profile_kind(snapshot)
     active = snapshot.config[4]
     at = 0x2C + 4 * active if active < 8 else None
+    dpi_at = 0x0C + 4 * active if active < 8 else None
+    dpi_record = snapshot.config[dpi_at:dpi_at + 4] if dpi_at is not None else None
     return {"bank": snapshot.index, "platform": kind,
             "main_mode": snapshot.config[0xA0], "main_rgb": list(snapshot.config[0xA1:0xA4]),
             "main_enabled": snapshot.config[0xA7],
             "dpi_mode": snapshot.config[0x4C], "dpi_enabled": snapshot.config[0x52],
             "dpi_rgb": list(snapshot.config[at:at + 3]) if at is not None else None,
+            "dpi_stage": active, "dpi_count": snapshot.config[2],
+            "dpi_record": dpi_record.hex() if dpi_record is not None else None,
+            "dpi_x": dpi_record[0] * 100 if dpi_record is not None and dpi_record[2] == 0 else None,
+            "dpi_y": dpi_record[1] * 100 if dpi_record is not None and dpi_record[2] == 0 else None,
             "move_off_enabled": snapshot.config[0xB3]}
 
 
 def describe_lighting(snapshot: Snapshot) -> str:
     status = lighting_status(snapshot)
-    main = "#" + bytes(status["main_rgb"]).hex().upper()
+    main = ("#" + bytes(status["main_rgb"]).hex().upper()
+            if status["main_enabled"] and status["main_mode"] else "desligada")
     dpi = "#" + bytes(status["dpi_rgb"]).hex().upper() if status["dpi_rgb"] is not None else "indice invalido"
     moving = "ATIVADO" if status["move_off_enabled"] else "desativado"
-    return (f"Banco {snapshot.index + 1} ({status['platform']}): faixa {main}; "
+    value = f"{status['dpi_x']} DPI" if status["dpi_x"] is not None else "DPI com extensao"
+    return (f"Banco {snapshot.index + 1} ({status['platform']}): {value}; faixa {main}; "
             f"indicador DPI {dpi}; apagar ao mover {moving}.")

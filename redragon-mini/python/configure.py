@@ -157,14 +157,14 @@ def click_button(current: int) -> None:
 
 
 def describe() -> None:
-    say("\nREDRAGON MINI PYTHON 0.4 - configuracao unica no Windows")
+    say("\nREDRAGON MINI PYTHON 0.5 - configuracao unica no Windows")
     say("                 macOS                Windows")
     say("Botao 4:         Command+V            Ctrl+V")
     say("Botao 5:         Command+C            Ctrl+C")
     say("Botao 6:         Command+1            Print Screen")
     say("Botao 7:         alternar as duas configuracoes no proprio mouse")
     say("DPI:             2000 em todas as etapas habilitadas; cores preservadas nesta opcao.")
-    say("Para adicionar rosa/macOS e vermelho/Windows aos perfis que ja funcionam, use a opcao 5.")
+    say("Depois, use a opcao 5: Windows 2100 DPI/indicador azul; Mac 2000 DPI/indicador vermelho; RGB desligado.")
     say("\nA funcao interna sera testada antes da gravacao final. Se nao funcionar, o programa restaura e para.")
     say("Se o firmware percorrer quatro bancos, os dados serao organizados como Mac/Windows/Mac/Windows na ordem medida.")
     say("Nenhum servico ou remapeador fica instalado. Feche o aplicativo original da Redragon.")
@@ -208,24 +208,26 @@ def inspect_device() -> None:
 
 
 def update_colors_once() -> None:
-    say("\nSomente iluminacao dos perfis existentes:")
-    say("macOS: rosa fixo RGB 255, 0, 255. Windows: vermelho fixo RGB 255, 0, 0.")
-    say("A faixa RGB e o indicador de DPI receberao a mesma cor fixa, sem animacao.")
-    say("Lights off when moving sera DESATIVADO em todos os bancos.")
-    say("Botoes 4, 5, 6 e 7 e os valores de DPI serao conservados.")
+    say("\nAjustar somente DPI e indicador dos perfis existentes:")
+    say("Windows: 2100 DPI; indicador AZUL fixo (RGB 0, 0, 255).")
+    say("macOS:   2000 DPI; indicador VERMELHO fixo (RGB 255, 0, 0).")
+    say("A faixa RGB principal ficara DESLIGADA em todos os bancos.")
+    say("Somente o indicador de DPI ficara habilitado em modo fixo, sem animacao.")
+    say("Lights off when moving continuara DESATIVADO; o tempo de repouso sera conservado.")
+    say("Botoes 4, 5, 6 e 7, demais teclas, macros e quantidade/indice das etapas DPI serao conservados.")
     say("Feche o aplicativo original da Redragon e conecte o mouse pelo cabo USB.")
     say("Primeiro vamos reconhecer os perfis pelos atalhos atuais e pelos cliques solicitados no botao 7.")
     say("Nao pressione botoes durante leituras ou gravacoes; clique somente quando solicitado.")
     connector = Connector(choose_device())
     programmer = Programmer(connector, backup_directory(), EXPECTED_DEVICE, say)
-    backup = programmer.update_colors(click_button)
-    say("\nCores gravadas. Backup da configuracao anterior: " + str(backup.path))
+    backup = programmer.update_dpi_indicator(click_button)
+    say("\nDPI e indicador gravados. Backup da configuracao anterior: " + str(backup.path))
     try:
         connector.wait_for_reconnect()
         programmer.verify(backup, observed_disconnect=True, click=click_button)
-        say("\nDados de iluminacao conferidos apos reconexao e depois de cada clique do botao 7.")
+        say("\nDPI e iluminacao conferidos apos reconexao e depois de cada clique do botao 7.")
         say("Agora a conexao esta fechada. Aperte o botao 7 e observe a luz estabilizada em cada perfil.")
-        answer = input("A luz alterna ROSA no macOS e VERMELHO no Windows? [s/n; Enter = conferir depois]: ").strip().lower()
+        answer = input("A faixa fica apagada e so o indicador alterna AZUL/Windows e VERMELHO/Mac? [s/n; Enter = conferir depois]: ").strip().lower()
         confirmed = True if answer in ("s", "sim") else False if answer in ("n", "nao", "não") else None
         backup.phase(backup.document["phase"], visual_color_confirmed=confirmed)
         if confirmed is True:
@@ -235,13 +237,13 @@ def update_colors_once() -> None:
             say("Guarde o log dos bancos acima e o backup para diagnosticar a ativacao da luz pelo firmware.")
         else:
             say("Memoria conferida; alternancia visual ainda pendente.")
-        say("Teste tambem a nova iluminacao no receptor 2,4 GHz e no Bluetooth.")
+        say("Teste os novos DPI e indicador tambem no receptor 2,4 GHz e no Bluetooth, com o programa fechado.")
     except (KeyboardInterrupt, EOFError):
-        say("\nAs cores foram gravadas; a conferencia apos desligar ficou pendente. Use a opcao 3 depois.")
+        say("\nDPI e indicador foram gravados; a conferencia ficou pendente. Use a opcao 3 depois.")
     except Exception as error:
-        say("\nAs cores foram relidas antes de desconectar, mas a conferencia posterior falhou: " + str(error))
+        say("\nDPI e indicador foram relidos antes de desconectar, mas a conferencia posterior falhou: " + str(error))
         say("Backup: " + str(backup.path))
-        say("Use a opcao 3 para verificar ou 4 para restaurar a iluminacao anterior.")
+        say("Use a opcao 3 para verificar ou 4 para restaurar os DPI e iluminacao anteriores.")
 
 
 def verify_saved() -> None:
@@ -273,12 +275,12 @@ def main() -> int:
         inspect_device()
         return 0
     while True:
-        say("\nREDRAGON MINI PYTHON 0.4")
+        say("\nREDRAGON MINI PYTHON 0.5")
         say("\n1 Configurar os dois perfis (assistente com teste fisico do botao 7)")
         say("2 Identificar mouse, sem gravar configuracoes")
         say("3 Verificar configuracao apos desligar/reconectar")
         say("4 Restaurar backup")
-        say("5 Ajustar SOMENTE ILUMINACAO (Mac rosa / Windows vermelho; manter acesa ao mover)")
+        say("5 Ajustar DPI e indicador (Windows 2100/azul; Mac 2000/vermelho; RGB desligado)")
         say("0 Sair")
         try:
             choice = input("Escolha: ").strip()

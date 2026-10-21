@@ -128,7 +128,7 @@ class ConnectorTests(unittest.TestCase):
             self.assertEqual(configure.main(), 1)
             enumerate_hid.assert_not_called()
 
-    def test_menu_five_runs_color_only_programming_then_readonly_verification(self):
+    def test_menu_five_runs_dpi_indicator_update_then_readonly_verification(self):
         with patch.object(configure.os, "name", "nt"), \
              patch.object(configure.sys, "argv", ["configure.py"]), \
              patch("builtins.input", side_effect=["5", "s", "0"]), \
@@ -140,14 +140,15 @@ class ConnectorTests(unittest.TestCase):
              patch.object(configure, "configure_once") as full_configuration:
             self.assertEqual(configure.main(), 0)
             program = programmer_class.return_value
-            program.update_colors.assert_called_once_with(configure.click_button)
+            program.update_dpi_indicator.assert_called_once_with(configure.click_button)
+            program.update_colors.assert_not_called()
             program.configure.assert_not_called()
             full_configuration.assert_not_called()
             connector_class.return_value.wait_for_reconnect.assert_called_once_with()
-            program.verify.assert_called_once_with(program.update_colors.return_value,
+            program.verify.assert_called_once_with(program.update_dpi_indicator.return_value,
                                                    observed_disconnect=True,
                                                    click=configure.click_button)
-            self.assertTrue(program.update_colors.return_value.phase.call_args.kwargs["visual_color_confirmed"])
+            self.assertTrue(program.update_dpi_indicator.return_value.phase.call_args.kwargs["visual_color_confirmed"])
 
     def test_user_report_of_unchanged_light_is_not_recorded_as_visual_success(self):
         with patch.object(configure, "say") as output, \
@@ -157,7 +158,7 @@ class ConnectorTests(unittest.TestCase):
              patch.object(configure, "Connector"), \
              patch.object(configure, "Programmer") as programmer_class:
             configure.update_colors_once()
-            backup = programmer_class.return_value.update_colors.return_value
+            backup = programmer_class.return_value.update_dpi_indicator.return_value
             self.assertIs(backup.phase.call_args.kwargs["visual_color_confirmed"], False)
             messages = [call.args[0] for call in output.call_args_list]
             self.assertTrue(any("NAO alternou" in text for text in messages))

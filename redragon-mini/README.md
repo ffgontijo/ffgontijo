@@ -1,23 +1,25 @@
-# Redragon Mini — Python 0.4
+# Redragon Mini — Python 0.5
 
 Configurador de uso único para Windows. Os atalhos são gravados no mouse; não é instalado um remapeador ou serviço em segundo plano.
 
 ## Download
 
-[**Baixar RedragonMini-Python-v0.4.zip**](https://github.com/ffgontijo/ffgontijo/raw/refs/heads/codex/redragon-mini-v0.1/redragon-mini/RedragonMini-Python-v0.4.zip)
+[**Baixar RedragonMini-Python-v0.5.zip**](https://github.com/ffgontijo/ffgontijo/raw/refs/heads/codex/redragon-mini-v0.1/redragon-mini/RedragonMini-Python-v0.5.zip)
 
 Instale Python 3.10 ou superior para Windows, extraia o ZIP inteiro e abra **Iniciar.cmd**. Não precisa de `pip`, EXE próprio, driver adicional ou administrador.
 
-**Se os atalhos já funcionam, escolha 5 — Ajustar SOMENTE ILUMINAÇÃO.** Conecte pelo cabo, feche o app original e siga os cliques solicitados no botão 7. A opção configura a faixa RGB e o indicador de DPI com cores fixas, sem regravar botões, atalhos ou valores de DPI:
+**Se os atalhos já funcionam, escolha 5 — Ajustar DPI e indicador.** Extraia em uma pasta nova, conecte pelo cabo, feche o app original e siga os cliques solicitados no botão 7. A opção conserva todos os botões, atalhos e macros e aplica:
 
-- **macOS: rosa/magenta — RGB 255, 0, 255 (`#FF00FF`).**
-- **Windows: vermelho — RGB 255, 0, 0 (`#FF0000`).**
+| Perfil | DPI | Somente o indicador DPI | Iluminação principal |
+|---|---|---|---|
+| Windows | **2100** | **Azul** `#0000FF`, fixo | **Desligada** |
+| macOS / MacBook | **2000** | **Vermelho** `#FF0000`, fixo | **Desligada** |
 
-**Lights off when moving fica desativado** nos quatro bancos. A iluminação usa modo fixo, sem respiração ou animação; o tempo de repouso permanece como estava.
+**Lights off when moving fica desativado** nos quatro bancos. O indicador usa modo fixo, sem respiração ou animação; o tempo de repouso permanece como estava. Quantidade e índice das etapas DPI e valores numéricos das etapas desabilitadas são conservados. As etapas habilitadas recebem o DPI do perfil.
 
-O assistente salva um backup novo, lê o ciclo existente e confere as regiões gravadas. A restauração desse backup também altera somente a iluminação e a preferência de movimento. Não precisa copiar o backup antigo para a nova pasta. Ao terminar, siga a verificação após desligar/reconectar e a conferência visual. Responda `s` se a luz alternou entre rosa/vermelho ou `n` se não alternou. Leituras corretas da memória e confirmação visual são registradas separadamente.
+O assistente salva um backup novo, lê o ciclo existente sem regravar o botão 7 e confere os registros gravados. A restauração desse backup também se limita aos campos de DPI/iluminação da operação, sem restaurar teclas. Não precisa copiar backups antigos para a nova pasta. Siga a verificação após desligar/reconectar e confira visualmente, com o programa desconectado: faixa apagada e somente o indicador azul/Windows ou vermelho/Mac. Responda `s` se ficou correto ou `n` se não ficou. Memória e aparência são registradas separadamente.
 
-Para configurar os atalhos pela primeira vez, escolha **1 — Configurar os dois perfis**. Depois use 5 para aplicar as cores.
+Para configurar os atalhos pela primeira vez, escolha **1 — Configurar os dois perfis**. Depois use 5 para aplicar o DPI/indicador atuais.
 
 | Botão | macOS | Windows |
 |---|---|---|
@@ -26,7 +28,7 @@ Para configurar os atalhos pela primeira vez, escolha **1 — Configurar os dois
 | 6 — captura | Command+1 | Print Screen |
 | 7 | Alternar a configuração interna | Alternar a configuração interna |
 
-DPI na configuração inicial: **2000 em todas as etapas habilitadas**. A atualização de iluminação conserva os valores atuais e a quantidade/seleção de etapas DPI. Apenas suas cores indicadoras recebem a cor do perfil.
+DPI na configuração inicial da opção 1: **2000 nos dois sistemas**. A opção 5 aplica a configuração atual: **2100 no Windows e 2000 no Mac**. Se os botões já funcionam, use somente 5.
 
 ## Procedimento
 
@@ -34,7 +36,7 @@ O assistente confirma a identificação USB, salva backup antes de alterar qualq
 
 Se o mouse percorrer quatro bancos, o assistente os organiza como macOS/Windows/macOS/Windows na ordem observada. Se a ação de troca não funcionar, ele para e tenta restaurar os originais. O código genérico do aplicativo original não é tratado como comprovação de suporte no firmware.
 
-A gravação é feita pelo cabo. Ao final, o assistente observa a desconexão/reconexão e verifica novamente memória e ciclo. **O usuário confirmou o funcionamento da versão 0.2 por cabo, receptor 2,4 GHz e Bluetooth**, incluindo os botões 4, 5, 6 e 7. Na versão 0.3, os bytes das cores persistiram, mas a luz permaneceu vermelha. A versão 0.4 configura também os indicadores DPI e desativa o apagamento ao mover; a correção visual ainda precisa do teste no mouse. Nenhuma gravação física é feita no ambiente de desenvolvimento.
+A gravação é feita pelo cabo. Depois, o uso é pela memória do mouse, sem programa residente. **O usuário confirmou os botões e a troca interna por cabo, receptor 2,4 GHz e Bluetooth** na versão 0.2. As versões 0.3/0.4 persistiram os bytes de iluminação, mas não produziram a alternância visual desejada. A configuração 0.5 usa DPI diferentes e somente o indicador aceso; a atualização ainda precisa do teste físico nas três conexões. Nenhuma gravação física é feita no ambiente de desenvolvimento.
 
 ## Guia, revisão e código
 

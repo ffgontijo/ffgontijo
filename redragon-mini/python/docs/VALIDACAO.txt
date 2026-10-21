@@ -1,11 +1,12 @@
-Redragon Mini Python 0.4 - validacao de software
+Redragon Mini Python 0.5 - validacao de software
 
-98 testes passaram:
+115 testes passaram:
 - 21 de protocolo e codificacao, incluindo frames capturados.
 - 10 do transporte HID com API nativa simulada.
 - 27 de planejamento, configuracao, backup e recuperacao.
 - 11 do assistente/conexao, menu RGB, conferencia visual e reconexao.
 - 29 da atualizacao RGB, classificacao, preservacao e recuperacao.
+- 17 do novo ajuste DPI/indicador, compatibilidade e restauracao por escopo.
 
 Executado com Python 3.12.14 no Linux, sem dispositivo USB real.
 Comando, na pasta do configurador:
@@ -15,14 +16,17 @@ Arquivos .py aceitos pelo parser com gramatica Python 3.10.
 Ajuda --help funciona sem carregar DLL do Windows.
 Execucao USB fora do Windows e recusada antes de acessar hardware.
 
-Faixa RGB: modo 3 fixo, macOS FF00FF, Windows FF0000,
-brilho 9/9, velocidade existente conservada, habilitacao 01 54.
-Indicador DPI: oito cores no mesmo RGB do perfil, modo 1 fixo,
+Windows: 2100 DPI, 15 15 00 2B; indicador azul 00 00 FF 56.
+macOS: 2000 DPI, 14 14 00 2D; indicador vermelho FF 00 00 56.
+Faixa principal: modo 0 e habilitacao 00 55; demais campos conservados.
+Indicador DPI: oito cores no RGB do perfil, modo 1 fixo,
 brilho maximo FF, habilitacao 01 54. Apagar ao mover: 00 55.
 Escritas em registros conhecidos de 4 bytes (cores dos estagios),
 2 bytes (modo/brilho/habilitacao/movimento) e 7 bytes (faixa RGB).
-Preservados: botoes, atalhos, valores/quantidade/indice DPI, macros,
-tempo de repouso, velocidades e selecao inicial do perfil.
+Preservados: botoes, atalhos, quantidade/indice DPI, valores das etapas
+numericas desabilitadas, macros, polling rate, tempo de repouso,
+velocidades e selecao inicial do perfil. Somente valores DPI habilitados
+e registros de iluminacao conhecidos sao alterados pela opcao 5.
 
 Testes incluem ciclo real 2/4 com conexao fechada entre cliques,
 identificacao pelos atalhos em vez de numero de banco, backup de
@@ -35,14 +39,24 @@ A verificacao por botao le os registros depois do clique fisico,
 sem selecionar antes o banco pelo computador. Bytes/ciclo corretos
 nao marcam visual_color_confirmed; isso depende da resposta do usuario.
 
+Novos testes verificam quantidades de etapas 1/8, perfil Windows no
+banco zero, recusa de metadados/checksums DPI invalidos antes de gravar,
+checksums dos pacotes 2100/azul/mainOFF, nove falhas parciais em registros
+distintos, restauracao do escopo numerico original apos alteracoes
+externas de etapas/teclas/macros, reparacao/recuperacao, backups antigos
+sem expansao de escopo, recusa de operacao desconhecida e idempotencia.
+A verificacao fisica simulada tambem detecta DPI alterado no clique.
+
 Validacao fisica informada pelo usuario:
 - versao 0.2 funcionou por cabo, receptor 2,4 GHz e Bluetooth;
 - botoes 4, 5, 6 e 7 funcionaram conforme os perfis solicitados.
 - na versao 0.3, os bytes de cor persistiram apos reconectar;
 - apesar disso, a luz ficou vermelha e apagava ao mover sem fio.
+- na versao 0.4, todos os bancos e cliques releram as cores esperadas,
+  mas a resposta visual do usuario continuou sendo negativa.
 
-Ainda pendente no hardware: conferencia visual da correcao 0.4,
-incluindo indicador DPI alinhado e apagamento ao mover desativado.
+Ainda pendente no hardware: configuracao 0.5 (2100/azul no Windows,
+2000/vermelho no Mac, faixa apagada) em cabo, receptor e Bluetooth.
 O programa relera a memoria apos desconexao/reconexao observada e
 registrara as leituras depois do botao 7 e a resposta visual separada.
 Nenhum teste simulado substitui essa conferencia fisica das cores.
